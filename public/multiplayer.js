@@ -42,8 +42,8 @@
   function render() {
     invite.value = `${location.origin}/?room=${encodeURIComponent(code)}&lang=${window.BingoLanguage.language}`;
     document.getElementById('instructions').textContent = t(
-      '10 minutes, all 118 elements, no orbital rounds. A full cartella wins immediately; otherwise the highest score wins at time-up. Skipped elements can return only if someone still needs them.',
-      '10 minuti, tutti i 118 elementi, nessun turno per orbitale. La cartella completa vince subito; altrimenti vince il punteggio pi\u00f9 alto allo scadere. Gli elementi passati tornano solo se servono ancora a qualcuno.');
+      'Score the most points in 10 minutes! All 118 elements, no orbital rounds. You do not need a complete cartella to win. Completing it wins immediately; otherwise the highest score wins at time-up. Skipped elements can return only if someone still needs them.',
+      'Raccogli pi\u00f9 punti in 10 minuti! Tutti i 118 elementi, nessun turno per orbitale. Non serve completare la cartella per vincere. Completarla fa vincere subito; altrimenti vince il punteggio pi\u00f9 alto allo scadere. Gli elementi passati tornano solo se servono ancora a qualcuno.');
     if (!state) return;
     const host = state.selfId === state.hostId;
     start.hidden = state.phase !== 'lobby' || !host;

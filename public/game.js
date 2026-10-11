@@ -110,8 +110,8 @@
     row.element.classList.add('completed', 'celebrating');
     celebrationMessage.textContent = t(`${row.block} row complete`, `Riga ${row.block} completata`);
     celebration.hidden = false;
-    setStatus(t(`Bingo! The ${row.block} row is complete. Keep going for the full board!`,
-      `Bingo! La riga ${row.block} \u00e8 completa. Continua per completare la cartella!`), 'success');
+    setStatus(t(`Bingo! The ${row.block} row is complete. Keep collecting points!`,
+      `Bingo! La riga ${row.block} \u00e8 completa. Continua a raccogliere punti!`), 'success');
   }
 
   function roomStatus() {
