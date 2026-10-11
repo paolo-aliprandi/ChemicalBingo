@@ -65,6 +65,14 @@ npm run deploy
 
 Confirm the personal account before deploying. The deployment command publishes both the site and multiplayer backend and prints the live `workers.dev` URL. No custom domain or paid plan is required.
 
+### Automatic deployments from GitHub
+
+In the personal Cloudflare dashboard, open **Workers & Pages > chemical-bingo > Settings > Builds** and connect **paolo-aliprandi/ChemicalBingo**. Authorize the Cloudflare GitHub app for this repository only. Use production branch **main**, repository root **/**, no build command, and **npm run deploy** as the deploy command. Disable non-production branch builds; the preview command can keep its default value.
+
+Once connected, pushes to `main` automatically deploy the existing Worker and its static assets. Check the build result in Cloudflare's **Builds** tab; GitHub Pages checks do not verify the Cloudflare deployment. No runtime variables or GitHub Actions secrets are required for this native integration.
+
+Workers Builds is available on the Free plan with 3,000 build minutes per month. Keep Workers Free enabled. See [Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/) and [build limits and pricing](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/).
+
 Cloudflare's Free plan currently includes 100,000 Worker requests per day and free static asset requests. SQLite-backed Durable Objects also have daily compute and storage limits. Exceeding a free-plan limit makes the affected operations fail until the limit resets; do not enable Workers Paid if you require a zero-cost deployment. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) for current limits.
 
 Frontend files are in `public/`. `worker.js` implements rooms, and `wrangler.jsonc` configures the free-tier-compatible SQLite namespace. Only `public/` is served as static assets; local configuration and backend source are not public URLs.
