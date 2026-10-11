@@ -16,7 +16,7 @@ Each board has four rows of five unique symbols. Clues are drawn from **all 118 
 
 Correct answers turn green. Claims score **s = 1**, **p = 2**, **d = 3**, **f = 4** points each; a full board is worth 50 points. Wrong answers briefly turn red and let you retry. Completed rows lock, display a completion label, and turn **blue for s**, **red for p**, **yellow for d**, or **purple for f**, with a wave animation and Bingo banner. Reduced-motion preferences are respected. Use a mouse, touch, or Tab and Enter/Space.
 
-Wrong answers add one mistake to your counter but never deduct points. In multiplayer, mistakes and a one-second retry cooldown are tracked by the server and survive reconnects. Skips, stale requests, unavailable symbols, and lost claim races do not count as mistakes. The previous clue's correct name and symbol are revealed only after that clue ends.
+Wrong answers add one mistake to your counter but never deduct points. In multiplayer, the first mistake on a clue triggers a one-second retry cooldown; the second automatically skips that player for the rest of the clue. Other players can still claim it. The per-clue count resets on the next draw, while the total mistake counter is preserved. These rules are tracked by the server and survive reconnects. Manual and automatic skips prevent further attempts on that clue. Skips, stale requests, unavailable symbols, and lost claim races do not count as mistakes. The previous clue's correct name and symbol are revealed only after that clue ends.
 
 In single-player mode, **Next element** skips a clue and **New game** creates a fresh board.
 
@@ -30,7 +30,7 @@ Rooms support up to 20 players. Each player gets a private, independently genera
 
 On opponents' screens, the symbol and shared clue turn red and fall away; the claimant's name appears on the lost tile and clue card. The winner keeps a green symbol. Reduced-motion mode shows the final red/name state without falling animations.
 
-A shared, server-controlled **10-minute timer** starts with the game and survives reloads and reconnects. Each clue has a **six-second window** and advances automatically, so players cannot stall the game. A successful claim or everyone selecting **Skip / Ready** advances after a short feedback pause, or at the clue deadline if sooner. Late claims cannot score after a clue or game deadline.
+A shared, server-controlled **10-minute timer** starts with the game and survives reloads and reconnects. Each clue has a **maximum five-second window** and advances automatically, even if someone never selects Skip. A successful claim or everyone becoming ready through **Skip / Ready** or a two-mistake automatic skip advances after a short feedback pause, or at the clue deadline if sooner. Late claims cannot score after a clue or game deadline.
 
 All 118 elements are eligible for the initial draw pool. After that pool is exhausted, **only skipped, unclaimed elements still needed on at least one current player's cartella can return**. Off-board elements and claimed symbols never recycle. Completing a row does not start a new round or restrict subsequent draws.
 

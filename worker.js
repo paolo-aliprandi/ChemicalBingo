@@ -7,7 +7,7 @@ const elementBlocks = Object.fromEntries(blocks.flatMap((block) =>
   Object.keys(elements[block]).map((symbol) => [symbol, block])));
 const blockPoints = { s: 1, p: 2, d: 3, f: 4 };
 const gameDuration = 10 * 60 * 1000;
-const clueDuration = 6000;
+const clueDuration = 5000;
 const roomLifetime = 2 * 60 * 60 * 1000;
 const reconnectGrace = 60 * 1000;
 const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -155,6 +155,7 @@ export class BingoRoom extends DurableObject {
       if (this.room) {
         for (const player of this.room.players) {
           player.mistakes ??= 0;
+          player.clueMistakes ??= 0;
           player.retryAt ??= 0;
         }
       }
@@ -205,6 +206,7 @@ export class BingoRoom extends DurableObject {
         matched: candidate.marked.length,
         score: this.score(candidate),
         mistakes: candidate.mistakes,
+        clueMistakes: candidate.clueMistakes,
         blocks: blocks.filter((block) =>
           candidate.board[block].every((symbol) => candidate.marked.includes(symbol))).length,
       })),
@@ -269,6 +271,7 @@ export class BingoRoom extends DurableObject {
       player.marked = [];
       player.ready = false;
       player.mistakes = 0;
+      player.clueMistakes = 0;
       player.retryAt = 0;
     }
     if (phase === 'playing') this.draw();
@@ -341,6 +344,7 @@ export class BingoRoom extends DurableObject {
     this.room.advanceAt = Date.now() + clueDuration;
     for (const player of this.room.players) {
       player.ready = false;
+      player.clueMistakes = 0;
       player.retryAt = 0;
     }
     this.queueDraw();
@@ -372,7 +376,7 @@ export class BingoRoom extends DurableObject {
         const player = {
           id: crypto.randomUUID(), session, name: nickname(body.name),
           board: newBoard(), marked: [], ready: false, offlineAt: Date.now(), lastActionAt: 0,
-          mistakes: 0, retryAt: 0,
+          mistakes: 0, clueMistakes: 0, retryAt: 0,
         };
         this.room = {
           code, gameId: 1, revision: 0, rulesVersion: 4, phase: 'lobby', hostId: player.id,
@@ -406,7 +410,7 @@ export class BingoRoom extends DurableObject {
           player = {
             id: crypto.randomUUID(), session, name, board: newBoard(),
             marked: [], ready: false, offlineAt: Date.now(), lastActionAt: 0,
-            mistakes: 0, retryAt: 0,
+            mistakes: 0, clueMistakes: 0, retryAt: 0,
           };
           this.room.players.push(player);
         }
@@ -468,6 +472,7 @@ export class BingoRoom extends DurableObject {
           const { symbol } = this.room.current;
           const owner = this.room.claims[symbol];
           if (owner) throw new RequestError(409, `Already claimed by ${owner.name}. Wait for the next element.`);
+          if (player.ready) throw new RequestError(409, 'You skipped this clue. Wait for the next element.');
           if (!Object.values(player.board).some((row) => row.includes(body.symbol)) || player.marked.includes(body.symbol) ||
               this.room.claims[body.symbol]) {
             throw new RequestError(422, 'Choose an available symbol on your board.');
@@ -475,7 +480,10 @@ export class BingoRoom extends DurableObject {
           if (player.retryAt > Date.now()) throw new RequestError(429, 'Take a moment, then try again.');
           if (body.symbol !== symbol) {
             player.mistakes += 1;
-            player.retryAt = Date.now() + 1000;
+            player.clueMistakes += 1;
+            player.ready = player.clueMistakes >= 2;
+            player.retryAt = player.ready ? 0 : Date.now() + 1000;
+            this.queueDraw();
             this.room.expiresAt = Date.now() + roomLifetime;
             await this.save();
             this.broadcast();

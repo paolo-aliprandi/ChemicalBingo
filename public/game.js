@@ -73,6 +73,7 @@
     nextButton.disabled = loading || busy || !current || unavailable;
     if (!roomMode) nextButton.textContent = t('Next element \u2192', 'Prossimo elemento \u2192');
     else if (roomState?.phase === 'finished') nextButton.textContent = t('Competition finished', 'Sfida terminata');
+    else if (self?.clueMistakes >= 2) nextButton.textContent = t('Auto-skipped: 2 mistakes', 'Passato automaticamente: 2 errori');
     else if (roomState?.advancing) nextButton.textContent = t('Next clue coming...', 'Prossimo indizio in arrivo...');
     else nextButton.textContent = self?.ready ? t('Waiting for players...', 'In attesa dei giocatori...') :
       t('Skip / Ready \u2192', 'Passa / Pronto \u2192');
@@ -115,6 +116,7 @@
 
   function roomStatus() {
     if (!roomState || busy) return;
+    const self = roomState.players.find((player) => player.id === roomState.selfId);
     if (!roomState.connected) {
       setStatus(t('Connection lost. Reconnecting to your room...', 'Connessione persa. Riconnessione alla stanza...'), 'error');
     } else if (roomState.phase === 'lobby') {
@@ -139,13 +141,15 @@
         `Hai conquistato ${current.name}! +${points(roomState.blockPoints[current.block])}. Il prossimo indizio sta arrivando.`) :
         t(`${current.claimedName} got there first! No mistake counted. Next clue coming soon.`,
           `${current.claimedName} ha fatto prima! Nessun errore conteggiato. Prossimo indizio in arrivo.`), yours ? 'success' : 'race');
+    } else if (self?.clueMistakes >= 2) {
+      setStatus(t('Two mistakes on this clue: automatically skipped. You can play again on the next clue. Your points are safe.',
+        'Due errori su questo indizio: passato automaticamente. Puoi giocare dal prossimo indizio. Non perdi punti.'), 'wrong');
     } else if (roomState.retryEndsAt > Date.now()) {
-      setStatus(t('Not quite! Take a moment, then try again. Your points are safe.',
-        'Non proprio! Attendi un momento e riprova. Non perdi punti.'), 'wrong');
+      setStatus(t('First mistake on this clue. Take a moment, then try once more. A second mistake automatically skips.',
+        'Primo errore su questo indizio. Attendi un momento e riprova. Al secondo errore passi automaticamente.'), 'wrong');
     } else if (roomState.advancing) {
       setStatus(t('Everyone is ready. The next clue is on its way...', 'Tutti pronti. Il prossimo indizio sta arrivando...'), 'success');
     } else {
-      const self = roomState.players.find((player) => player.id === roomState.selfId);
       const ready = roomState.players.filter((player) => player.ready).length;
       setStatus(self?.ready ? t(`Skipped! ${ready}/${roomState.players.length} ready. The clue advances automatically.`,
         `Passato! ${ready}/${roomState.players.length} pronti. L'indizio avanza automaticamente.`) :
@@ -467,7 +471,10 @@
       for (const cell of row.cells) cell.owner.firstChild.textContent = t('Claimed by', 'Preso da');
     }
     if (roomMode) {
-      if (roomState) applyRoom(roomState);
+      if (roomState) {
+        clearFeedback();
+        applyRoom(roomState);
+      }
       return;
     }
     if (current) {
@@ -498,15 +505,18 @@
     clearFeedback();
     busy = true;
     cell.button.classList.add('wrong');
-    setStatus(t('Not quite! Take a moment, then try again. Your points are safe.',
-      'Non proprio! Attendi un momento e riprova. Non perdi punti.'), 'wrong');
+    const skipped = roomState.players.find((player) => player.id === roomState.selfId)?.clueMistakes >= 2;
+    setStatus(skipped ? t('Two mistakes on this clue: automatically skipped. You can play again on the next clue. Your points are safe.',
+      'Due errori su questo indizio: passato automaticamente. Puoi giocare dal prossimo indizio. Non perdi punti.') :
+      t('First mistake on this clue. Take a moment, then try once more. A second mistake automatically skips.',
+        'Primo errore su questo indizio. Attendi un momento e riprova. Al secondo errore passi automaticamente.'), 'wrong');
     updateControls();
     feedbackTimer = setTimeout(() => {
       clearFeedback();
       roomStatus();
       updateControls();
-      if (document.activeElement === document.body) cell.button.focus({ preventScroll: true });
-    }, Math.max(0, roomState.retryEndsAt - Date.now()));
+      if (document.activeElement === document.body && !cell.button.disabled) cell.button.focus({ preventScroll: true });
+    }, skipped ? 1000 : Math.max(0, roomState.retryEndsAt - Date.now()));
   });
   resetButton.addEventListener('click', () => {
     if (roomMode && elements) {

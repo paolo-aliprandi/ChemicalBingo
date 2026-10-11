@@ -108,6 +108,7 @@
     'The clue changed. Please use the current element.': 'L\'indizio \u00e8 cambiato. Usa l\'elemento attuale.',
     'Choose an available symbol on your board.': 'Scegli un simbolo disponibile nella cartella.',
     'Take a moment, then try again.': 'Attendi un momento, poi riprova.',
+    'You skipped this clue. Wait for the next element.': 'Hai passato questo indizio. Attendi il prossimo elemento.',
     'The next clue is already on its way.': 'Il prossimo indizio sta gi\u00e0 arrivando.',
     'Unknown room action.': 'Azione della stanza non riconosciuta.',
     'The room expired.': 'La stanza \u00e8 scaduta.',

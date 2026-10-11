@@ -21,8 +21,8 @@
   const resultsReason = document.getElementById('resultsReason');
   const resultsHome = document.getElementById('resultsHome');
   let resultsKey;
-  const roomHint = () => t('Exclusive claims: s +1, p +2, d +3, f +4. Clues advance automatically. Only the host can start or reset.',
-    'Conquiste esclusive: s +1, p +2, d +3, f +4. Gli indizi avanzano automaticamente. Solo l\'organizzatore pu\u00f2 avviare o reimpostare.');
+  const roomHint = () => t('Exclusive claims: s +1, p +2, d +3, f +4. Maximum 5 seconds per clue; two mistakes automatically skip. Only the host can start or reset.',
+    'Conquiste esclusive: s +1, p +2, d +3, f +4. Massimo 5 secondi per indizio; due errori fanno passare automaticamente. Solo l\'organizzatore pu\u00f2 avviare o reimpostare.');
   panel.hidden = false;
   codeLabel.textContent = code;
   let state;
@@ -59,7 +59,8 @@
       const parts = [points(player.score), t(`${player.matched}/20 marked`, `${player.matched}/20 abbinati`), mistakes(player.mistakes)];
       if (player.host) parts.push(t('Host', 'Organizzatore'));
       if (!player.online) parts.push(t('Reconnecting', 'Riconnessione'));
-      else if (player.ready && state.phase === 'playing') parts.push(t('Ready', 'Pronto'));
+      else if (player.ready && state.phase === 'playing') parts.push(player.clueMistakes >= 2 ?
+        t('Auto-skipped: 2 mistakes', 'Passato automaticamente: 2 errori') : t('Ready', 'Pronto'));
       if (state.winnerIds.includes(player.id)) parts.push(t('Winner!', 'Vincitore!'));
       detail.textContent = parts.join(' \u00b7 ');
       item.append(name, detail);
