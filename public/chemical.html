@@ -217,6 +217,34 @@
       text-align: center;
     }
 
+    .clue-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      align-items: start;
+      gap: 14px;
+    }
+
+    .player-stats {
+      padding: 18px;
+      border: 1px solid #d2e3d7;
+      border-radius: 16px;
+      background: white;
+      text-align: right;
+    }
+
+    .player-stats .progress-label {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    #matchProgress {
+      color: #296b59;
+      font-size: 24px;
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+
     .clue-card.lost-clue {
       background: #fce9e5;
       border-color: #d57a6b;
@@ -417,7 +445,8 @@
     #mistakeProgress {
       margin-top: 12px;
       color: #76531d;
-      font-size: 13px;
+      font-size: 16px;
+      font-weight: 650;
       text-align: right;
     }
 
@@ -868,6 +897,28 @@
         display: none;
       }
 
+      .clue-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .player-stats {
+        order: -1;
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        max-width: 100%;
+        padding: 12px 16px;
+      }
+
+      .player-stats .progress-label {
+        margin: 0;
+      }
+
+      #mistakeProgress {
+        margin: 0;
+      }
+
       .board-card {
         padding: 16px 10px;
       }
@@ -976,11 +1027,20 @@
       <p id="replayHint" class="hint"></p>
     </section>
 
-    <section class="clue-card" aria-label="Current clue">
-      <p class="eyebrow" id="clueLabel">Find this element</p>
-      <p id="currentElement" aria-live="polite" aria-atomic="true"></p>
-      <p id="activeBlock">Preparing your board...</p>
-    </section>
+    <div class="clue-layout">
+      <section class="clue-card" aria-label="Current clue">
+        <p class="eyebrow" id="clueLabel">Find this element</p>
+        <p id="currentElement" aria-live="polite" aria-atomic="true"></p>
+        <p id="activeBlock">Preparing your board...</p>
+      </section>
+      <aside class="player-stats" aria-label="Your score and mistakes">
+        <div class="progress-label">
+          <label id="progressLabel" for="gameProgress">Elements matched</label>
+          <span id="matchProgress" aria-live="polite" aria-atomic="true">0 / 20</span>
+        </div>
+        <p id="mistakeProgress" aria-live="polite" aria-atomic="true">0 mistakes</p>
+      </aside>
+    </div>
     <p id="status" role="status" aria-atomic="true">Loading elements...</p>
     <p id="answerReveal" class="answer-reveal" hidden></p>
 
@@ -994,12 +1054,7 @@
         <strong>Bingo!</strong>
         <span id="celebrationMessage"></span>
       </div>
-      <div class="progress-label">
-        <label id="progressLabel" for="gameProgress">Elements matched</label>
-        <span id="matchProgress">0 / 20</span>
-      </div>
       <progress id="gameProgress" value="0" max="20"></progress>
-      <p id="mistakeProgress" aria-live="polite" aria-atomic="true">0 mistakes</p>
     </section>
 
     <div class="controls">

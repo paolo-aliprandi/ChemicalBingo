@@ -158,6 +158,7 @@
       ['#clueCountdown', 'aria-label', 'Tempo rimasto per l\'indizio'],
       ['#finalRanking', 'aria-label', 'Classifica finale'],
       ['.clue-card', 'aria-label', 'Indizio attuale'],
+      ['.player-stats', 'aria-label', 'Il tuo punteggio ed errori'],
       ['#bingoGrid', 'aria-label', 'Cartella della Tombola Chimica'],
       ['meta[name="description"]', 'content', 'Impara gli elementi con Chemical Bingo. Gioca da solo o invita gli amici in una stanza multigiocatore.'],
     ];
