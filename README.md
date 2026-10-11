@@ -8,6 +8,8 @@ Choose **English** or **Italiano** on the home or game page. The interface, game
 
 Switching language does not reset your board, score, mistakes, or room. Players can use different languages in the same room: clues still refer to the same element symbol, and the server keeps claims and scoring shared.
 
+Use **Dark mode** on either page to switch themes without interrupting play. The theme follows your system setting until you choose one, then remembers your preference across pages. Completed-row colors and red error indicators remain distinct in both themes.
+
 Match chemical element names to their symbols, earn points, and celebrate each Bingo. In multiplayer, aim for the highest score; you do not need a complete cartella to win. The home page lets you choose **Single player** or **Multiplayer**.
 
 ## Playing

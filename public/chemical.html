@@ -444,7 +444,7 @@
 
     #mistakeProgress {
       margin-top: 12px;
-      color: #76531d;
+      color: #a52b24;
       font-size: 16px;
       font-weight: 650;
       text-align: right;
@@ -961,6 +961,8 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
 </head>
 <body>
   <main>
@@ -975,6 +977,7 @@
       <a class="home-link" href="./">Home</a>
     </header>
     <div class="language-picker">
+      <button id="themeToggle" type="button" aria-pressed="false">Dark mode</button>
       <select id="languageSelect" aria-label="Language">
         <option value="en">English</option>
         <option value="it">Italiano</option>
@@ -1035,8 +1038,8 @@
       </section>
       <aside class="player-stats" aria-label="Your score and mistakes">
         <div class="progress-label">
-          <label id="progressLabel" for="gameProgress">Elements matched</label>
-          <span id="matchProgress" aria-live="polite" aria-atomic="true">0 / 20</span>
+          <label id="progressLabel" for="gameProgress">Score</label>
+          <span id="matchProgress" aria-live="polite" aria-atomic="true">0 points</span>
         </div>
         <p id="mistakeProgress" aria-live="polite" aria-atomic="true">0 mistakes</p>
       </aside>

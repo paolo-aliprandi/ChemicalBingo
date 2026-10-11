@@ -93,10 +93,10 @@
         cell.button.disabled = loading || busy || cell.marked || cell.taken || !current || unavailable;
       }
     }
-    progressLabel.textContent = roomMode ? t('Your score', 'Il tuo punteggio') : t('Elements matched', 'Elementi abbinati');
+    progressLabel.textContent = t('Score', 'Punteggio');
     const score = roomMode ? self?.score || 0 : rows.reduce((sum, row) =>
       sum + row.cells.filter((cell) => cell.marked).length * blockPoints[row.block], 0);
-    matchProgress.textContent = roomMode ? points(score) : `${matched} / 20 \u00b7 ${points(score)}`;
+    matchProgress.textContent = points(score);
     blockProgress.textContent = roomMode && roomState ?
       t(`Draw ${roomState.drawn} \u00b7 ${roomState.totalElements} possible elements`,
         `Estrazione ${roomState.drawn} \u00b7 ${roomState.totalElements} elementi possibili`) :

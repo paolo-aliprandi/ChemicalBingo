@@ -1,0 +1,197 @@
+.language-picker {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#themeToggle {
+  padding: 8px 12px;
+  border: 1px solid #cbd9cf;
+  border-radius: 8px;
+  background: white;
+  color: #203b36;
+  font: inherit;
+  cursor: pointer;
+}
+
+#themeToggle[aria-pressed="true"] {
+  border-color: #70c5aa;
+}
+
+#themeToggle:focus-visible {
+  outline: 3px solid #246bba;
+  outline-offset: 3px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: #e3eee9;
+  background: #111b18;
+  --theme-panel: #1b2a25;
+  --theme-raised: #24362e;
+  --theme-border: #40574b;
+  --theme-muted: #b3c7bc;
+  --theme-accent: #89d6b8;
+  --theme-error: #ff9b91;
+}
+
+[data-theme="dark"] body {
+  background: radial-gradient(ellipse at top left, #213c30, transparent 65%);
+}
+
+[data-theme="dark"] :is(.mode, .room-form, .room-card, .board-card, .timer-card, .player-stats, .podium-place, .final-ranking li) {
+  background: var(--theme-panel);
+  border-color: var(--theme-border);
+}
+
+[data-theme="dark"] :is(.subtitle, .hint, .field-hint, .footer, #instructions, #roomMessage, #roomStatus, #playerList span, #blockProgress, .progress-label, .final-ranking div span, .podium-place > span:last-child, #status) {
+  color: var(--theme-muted);
+}
+
+[data-theme="dark"] :is(.brand-mark, .eyebrow, .mode-action, .home-link, #roomCode, #activeBlock, #matchProgress, #status[data-tone="success"]) {
+  color: var(--theme-accent);
+}
+
+[data-theme="dark"] .brand-mark {
+  border-color: var(--theme-accent);
+}
+
+[data-theme="dark"] :is(#themeToggle, #languageSelect, input, .actions button, .room-card button, .controls button, #resultsHome, kbd) {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: #e3eee9;
+}
+
+[data-theme="dark"] input::placeholder {
+  color: var(--theme-muted);
+}
+
+[data-theme="dark"] :is(.mode[aria-expanded="true"], .mode-icon, .clue-card) {
+  background: #223e30;
+  border-color: #567a62;
+}
+
+[data-theme="dark"] .mode-icon {
+  color: var(--theme-accent);
+}
+
+[data-theme="dark"] :is(.mode:hover, .final-ranking li.is-you) {
+  border-color: var(--theme-accent);
+}
+
+[data-theme="dark"] #playerList li {
+  background: var(--theme-raised);
+}
+
+[data-theme="dark"] :is(.actions #createRoom, .controls #nextElement, #playAgain) {
+  background: #296b59;
+  border-color: #579e87;
+  color: white;
+}
+
+[data-theme="dark"] .controls button:hover:not(:disabled) {
+  background: #345544;
+}
+
+[data-theme="dark"] .element {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: #e3eee9;
+}
+
+[data-theme="dark"] .element.clicked {
+  background: #296b59;
+  border-color: #579e87;
+  color: white;
+}
+
+[data-theme="dark"] th {
+  color: var(--theme-muted);
+}
+
+[data-theme="dark"] tr.active th {
+  color: var(--theme-accent);
+}
+
+[data-theme="dark"] tr.completed th {
+  color: var(--completed-text);
+}
+
+[data-theme="dark"] tr.active .element:not(.clicked):not(.wrong):not(.taken) {
+  background: #2c4837;
+  border-color: #658772;
+}
+
+[data-theme="dark"] .element:hover:not(:disabled):not(.clicked):not(.wrong):not(.taken) {
+  background: #365740;
+  border-color: var(--theme-accent);
+}
+
+[data-theme="dark"] :is(.element.wrong, .element.taken, .clue-card.lost-clue) {
+  background: #482925;
+  border-color: #bd7068;
+  color: var(--theme-error);
+}
+
+[data-theme="dark"] :is(#mistakeProgress, #status[data-tone="wrong"], #status[data-tone="error"], #roomMessage.error, #roomStatus.error, .timer-card.time-low #gameTime, .clue-card.lost-clue .eyebrow, .clue-card.lost-clue #activeBlock, .clue-card.lost-clue #currentElement) {
+  color: var(--theme-error);
+}
+
+[data-theme="dark"] .timer-card.time-low {
+  border-color: #bd7068;
+}
+
+[data-theme="dark"] #status[data-tone="race"] {
+  color: #ebcb81;
+}
+
+[data-theme="dark"] .answer-reveal {
+  background: #22364b;
+  color: #b7d6f3;
+}
+
+[data-theme="dark"] .results-card {
+  background: linear-gradient(135deg, #2b253e, #353022);
+  border-color: #72618d;
+}
+
+[data-theme="dark"] :is(.rank-badge, .results-card .eyebrow, .podium-rank) {
+  color: #d5b8ff;
+}
+
+[data-theme="dark"] .rank-badge {
+  background: #3b3050;
+}
+
+[data-theme="dark"] .podium-place.place-1 {
+  background: #443b20;
+  border-color: #aa914b;
+}
+
+[data-theme="dark"] .place-1 .podium-rank {
+  color: #f6d77e;
+}
+
+[data-theme="dark"] .celebration {
+  background: var(--theme-panel);
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+}
+
+[data-theme="dark"] tr[data-block="s"] { --completed-color: #213e60; --completed-border: #78b2ef; --completed-text: #c0dfff; }
+[data-theme="dark"] tr[data-block="p"] { --completed-color: #572d2b; --completed-border: #ef9086; --completed-text: #ffccc6; }
+[data-theme="dark"] tr[data-block="d"] { --completed-color: #4e421d; --completed-border: #d9b751; --completed-text: #ffdf87; }
+[data-theme="dark"] tr[data-block="f"] { --completed-color: #422e5e; --completed-border: #ba91ee; --completed-text: #e5cbff; }
+
+[data-theme="dark"] tr.completed .element.clicked {
+  background: var(--completed-color);
+  border-color: var(--completed-border);
+  color: var(--completed-text);
+}
+
+[data-theme="dark"] progress,
+[data-theme="dark"] progress::-webkit-progress-bar {
+  background: #30453a;
+}

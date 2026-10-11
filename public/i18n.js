@@ -71,7 +71,7 @@
     '#status': 'Caricamento degli elementi...',
     '#boardTitle': 'La tua cartella',
     '#blockProgress': '0 / 4 righe complete',
-    '#progressLabel': 'Elementi abbinati',
+    '#progressLabel': 'Punteggio',
     '#mistakeProgress': '0 errori',
     '#resetGame': 'Nuova partita',
     '#nextElement': 'Prossimo elemento \u2192',
