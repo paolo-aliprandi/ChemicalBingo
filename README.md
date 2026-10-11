@@ -8,13 +8,13 @@ Choose **English** or **Italiano** on the home or game page. The interface, game
 
 Switching language does not reset your board, score, mistakes, or room. Players can use different languages in the same room: clues still refer to the same element symbol, and the server keeps claims and scoring shared.
 
-Match chemical element names to their symbols, complete the s, p, d, and f blocks, and celebrate each Bingo. The home page lets you choose **Single player** or **Multiplayer**.
+Match chemical element names to their symbols, complete your cartella, and celebrate each Bingo. The home page lets you choose **Single player** or **Multiplayer**.
 
 ## Playing
 
-Each board has four rows of five unique symbols. Clues are drawn from **all elements in the active block**, not just those on your board. If a clue is missing, skip it. In solo mode, each element is drawn once per cycle; exhausted pools renew without already matched symbols so skipped matches remain reachable.
+Each board has four rows of five unique symbols. Clues are drawn from **all 118 elements in one pool**, not just those on your board, with no orbital rounds or fixed s/p/d/f sequence. The rows are grouped by orbital only to organize the board; symbols in every incomplete row remain playable. If a clue is missing, skip it. In solo mode, each element is drawn once per cycle; exhausted pools renew without already matched symbols so skipped matches remain reachable.
 
-Correct answers turn green. Wrong answers briefly turn red and let you retry. Completed rows play a wave animation with a Bingo banner; reduced-motion preferences are respected. Use a mouse, touch, or Tab and Enter/Space.
+Correct answers turn green. Claims score **s = 1**, **p = 2**, **d = 3**, **f = 4** points each; a full board is worth 50 points. Wrong answers briefly turn red and let you retry. Completed rows lock, display a completion label, and turn **blue for s**, **red for p**, **yellow for d**, or **purple for f**, with a wave animation and Bingo banner. Reduced-motion preferences are respected. Use a mouse, touch, or Tab and Enter/Space.
 
 Wrong answers add one mistake to your counter but never deduct points. In multiplayer, mistakes and a one-second retry cooldown are tracked by the server and survive reconnects. Skips, stale requests, unavailable symbols, and lost claim races do not count as mistakes. The previous clue's correct name and symbol are revealed only after that clue ends.
 
@@ -26,21 +26,23 @@ In single-player mode, **Next element** skips a clue and **New game** creates a 
 2. Share the six-character room code or **Copy invite** link. Friends enter their own names and use **Join with code**.
 3. The host selects **Start game** once everyone has joined.
 
-Rooms support up to 20 players. Each player gets a private, independently generated board; everyone sees the same clue. **The first valid claim received by the server wins the element and scores 1 point.** That element becomes permanently unavailable to every other player. Simultaneous claims are resolved by the server, not by client-side timing.
+Rooms support up to 20 players. Each player gets a private, independently generated board; everyone sees the same clue. **The first valid claim received by the server wins the element and its orbital's points.** That element becomes permanently unavailable to every other player. Simultaneous claims are resolved by the server, not by client-side timing.
 
 On opponents' screens, the symbol and shared clue turn red and fall away; the claimant's name appears on the lost tile and clue card. The winner keeps a green symbol. Reduced-motion mode shows the final red/name state without falling animations.
 
-A successful claim automatically advances the shared clue after a short feedback pause. If nobody can claim it, use **Skip / Ready**; when everyone skips, the clue advances. The host can also use **Draw now** to move on early.
+A shared, server-controlled **10-minute timer** starts with the game and survives reloads and reconnects. Each clue has a **six-second window** and advances automatically, so players cannot stall the game. A successful claim or everyone selecting **Skip / Ready** advances after a short feedback pause, or at the clue deadline if sooner. Late claims cannot score after a clue or game deadline.
 
-Each block is a competitive round. Elements are drawn once, without recycling. A round ends as soon as someone completes a five-symbol Bingo, or when all elements in that block have been drawn. The highest round score wins that round; ties are shared. This ensures rounds can finish even when opponents have taken symbols needed for your row. After all four rounds, the highest total score wins the game; ties are shared. A game with no claims has no winner.
+All 118 elements are eligible for the initial draw pool. After that pool is exhausted, **only skipped, unclaimed elements still needed on at least one current player's cartella can return**. Off-board elements and claimed symbols never recycle. Completing a row does not start a new round or restrict subsequent draws.
 
-Between rounds, a synchronized three-second pause announces the round winner and upcoming orbital. After the final round, a podium and full ranking show points, mistakes, and round wins; equal scores share the same rank. The host can select **Play again** to return everyone to the lobby. Existing competitive rooms keep their progress when mistake tracking is introduced, starting their counters at zero.
+The game stops **immediately when someone completes all 20 symbols**, awarding them the win, or **when the 10-minute timer expires**, awarding the win to the highest weighted score. Equal scores share the win; a game with no claims has no winner. Players do not need a complete cartella to win on points. The timer does not guarantee that all 118 elements will be drawn. If the pools contain no claimable elements, drawing pauses until time expires.
 
-Only the host can start, reset, or draw early. **Reset room** returns everyone to the lobby so more friends can join. Players cannot join mid-game. **Leave room** returns to the home page; if the host leaves, another player becomes host.
+Both endings show a final podium and full ranking with points, matched symbols, and mistakes. The host can select **Play again** to return everyone to the same room's lobby and start a fresh 10-minute game. Everyone can select **Home** to leave the room.
+
+Only the host can start or reset. **Reset room** returns everyone to the lobby so more friends can join. Players cannot join mid-game. **Leave room** returns to the home page; if the host leaves, another player becomes host.
 
 Reloading reconnects to your existing player and board. Disconnected players have 60 seconds to reconnect before being removed. Rooms expire after two hours without gameplay activity. No player accounts are required; membership is kept in an HTTP-only cookie. To try two players on one computer, use a normal browser window and a separate private/incognito window.
 
-Rooms created under the previous cooperative rules return to the lobby when upgraded. The host can start a fresh competitive game.
+Rooms created under previous rules return to the lobby when upgraded, with fresh boards and scores. The host can start a new timed game.
 
 ## Local development
 

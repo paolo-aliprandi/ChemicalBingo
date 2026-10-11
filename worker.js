@@ -2,6 +2,12 @@ import { DurableObject } from 'cloudflare:workers';
 import elements from './public/elements.json';
 
 const blocks = ['s', 'p', 'd', 'f'];
+const allElements = Object.assign({}, ...Object.values(elements));
+const elementBlocks = Object.fromEntries(blocks.flatMap((block) =>
+  Object.keys(elements[block]).map((symbol) => [symbol, block])));
+const blockPoints = { s: 1, p: 2, d: 3, f: 4 };
+const gameDuration = 10 * 60 * 1000;
+const clueDuration = 6000;
 const roomLifetime = 2 * 60 * 60 * 1000;
 const reconnectGrace = 60 * 1000;
 const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -141,7 +147,7 @@ export class BingoRoom extends DurableObject {
     this.room = null;
     this.ctx.blockConcurrencyWhile(async () => {
       this.room = await this.ctx.storage.get('room') || null;
-      if (this.room && this.room.rulesVersion !== 2) {
+      if (this.room && this.room.rulesVersion !== 4) {
         this.newGame('lobby');
         await this.save();
         this.broadcast();
@@ -171,9 +177,12 @@ export class BingoRoom extends DurableObject {
       winnerId: this.room.winnerId,
       winnerIds: this.room.winnerIds,
       claims: this.room.claims,
-      round: Math.min(this.room.blockIndex + 1, blocks.length),
-      roundResults: this.room.roundResults,
-      intermission: Boolean(this.room.intermission),
+      drawn: this.room.drawId,
+      totalElements: Object.keys(allElements).length,
+      blockPoints,
+      remainingMs: this.room.phase === 'playing' ? Math.max(0, this.room.gameEndsAt - Date.now()) : 0,
+      clueRemainingMs: Math.max(0, (this.room.advanceAt || 0) - Date.now()),
+      endReason: this.room.endReason,
       previousAnswer: this.room.previousAnswer || null,
       retryAfterMs: Math.max(0, player.retryAt - Date.now()),
       current: this.room.current ? {
@@ -186,7 +195,7 @@ export class BingoRoom extends DurableObject {
       } : null,
       board: player.board,
       marked: player.marked,
-      advancing: Boolean(this.room.advanceAt),
+      advancing: Boolean(this.room.resolving),
       players: this.room.players.map((candidate) => ({
         id: candidate.id,
         name: candidate.name,
@@ -194,11 +203,10 @@ export class BingoRoom extends DurableObject {
         online: this.online(candidate),
         ready: candidate.ready,
         matched: candidate.marked.length,
+        score: this.score(candidate),
         mistakes: candidate.mistakes,
         blocks: blocks.filter((block) =>
           candidate.board[block].every((symbol) => candidate.marked.includes(symbol))).length,
-        roundWins: this.room.roundResults.filter((result) =>
-          result.winners.some((winner) => winner.id === candidate.id)).length,
       })),
     };
   }
@@ -223,6 +231,7 @@ export class BingoRoom extends DurableObject {
     this.room.revision = (this.room.revision || 0) + 1;
     await this.ctx.storage.put('room', this.room);
     const deadlines = [this.room.expiresAt];
+    if (this.room.phase === 'playing') deadlines.push(this.room.gameEndsAt);
     if (this.room.advanceAt) deadlines.push(this.room.advanceAt);
     for (const player of this.room.players) {
       if (player.offlineAt) deadlines.push(player.offlineAt + reconnectGrace);
@@ -231,27 +240,29 @@ export class BingoRoom extends DurableObject {
   }
 
   queueDraw() {
-    if (this.room.phase === 'playing' && !this.room.advanceAt &&
+    if (this.room.phase === 'playing' && this.room.current && !this.room.resolving &&
         this.room.players.every((player) => player.ready)) {
-      this.room.advanceAt = Date.now() + 1800;
+      this.room.resolving = true;
+      this.room.advanceAt = Math.min(this.room.advanceAt, Date.now() + 1800);
     }
   }
 
   newGame(phase) {
-    this.room.rulesVersion = 2;
+    this.room.rulesVersion = 4;
     this.room.gameId += 1;
     this.room.phase = phase;
     this.room.current = null;
-    this.room.blockIndex = 0;
     this.room.drawId = 0;
-    this.room.pool = [];
+    this.room.pool = Object.keys(allElements);
+    this.room.retryPool = [];
+    this.room.recycling = false;
     this.room.advanceAt = null;
+    this.room.resolving = false;
+    this.room.gameEndsAt = phase === 'playing' ? Date.now() + gameDuration : null;
+    this.room.endReason = null;
     this.room.winnerId = null;
     this.room.winnerIds = [];
     this.room.claims = {};
-    this.room.roundResults = [];
-    this.room.roundClosed = false;
-    this.room.intermission = false;
     this.room.previousAnswer = null;
     for (const player of this.room.players) {
       player.board = newBoard();
@@ -263,63 +274,71 @@ export class BingoRoom extends DurableObject {
     if (phase === 'playing') this.draw();
   }
 
-  closeRound(reason) {
-    const block = blocks[this.room.blockIndex];
-    const scores = this.room.players.map((player) => ({
-      id: player.id,
-      name: player.name,
-      score: player.board[block].filter((symbol) => player.marked.includes(symbol)).length,
-    }));
-    const best = Math.max(...scores.map((player) => player.score));
-    this.room.roundResults.push({
-      block,
-      reason,
-      winners: best > 0 ? scores.filter((player) => player.score === best) : [],
-    });
-    this.room.roundClosed = true;
+  score(player) {
+    return player.marked.reduce((score, symbol) => score + blockPoints[elementBlocks[symbol]], 0);
   }
 
-  draw() {
-    this.room.advanceAt = null;
+  canReturn(symbol) {
+    return !this.room.claims[symbol] && this.room.players.some((player) =>
+      player.board[elementBlocks[symbol]].includes(symbol) && !player.marked.includes(symbol));
+  }
+
+  finish(reason, winnerId) {
     if (this.room.current) {
       const { name, symbol } = this.room.current;
       this.room.previousAnswer = { name, symbol };
     }
-    if (this.room.current && (this.room.roundClosed || !this.room.pool.length)) {
-      if (!this.room.roundClosed) this.closeRound('pool');
-      if (!this.room.intermission) {
-        this.room.intermission = true;
-        this.room.advanceAt = Date.now() + 3000;
-        return;
-      }
-      this.room.intermission = false;
-      this.room.blockIndex += 1;
-      this.room.pool = [];
-      this.room.current = null;
-      this.room.roundClosed = false;
+    this.room.phase = 'finished';
+    this.room.endReason = reason;
+    this.room.advanceAt = null;
+    this.room.resolving = false;
+    this.room.current = null;
+    const best = Math.max(...this.room.players.map((player) => this.score(player)));
+    this.room.winnerIds = winnerId ? [winnerId] : best > 0 ? this.room.players
+      .filter((player) => this.score(player) === best).map((player) => player.id) : [];
+    this.room.winnerId = this.room.winnerIds[0] || null;
+  }
+
+  settleDeadlines() {
+    if (this.room.phase !== 'playing') return false;
+    if (this.room.gameEndsAt <= Date.now()) {
+      this.finish('time');
+      return true;
     }
-    if (this.room.blockIndex === blocks.length) {
-      this.room.phase = 'finished';
-      this.room.current = null;
-      const best = Math.max(...this.room.players.map((player) => player.marked.length));
-      this.room.winnerIds = best > 0 ? this.room.players
-        .filter((player) => player.marked.length === best).map((player) => player.id) : [];
-      this.room.winnerId = this.room.winnerIds[0] || null;
-      return;
+    if (this.room.advanceAt && this.room.advanceAt <= Date.now()) {
+      this.draw();
+      return true;
     }
-    const block = blocks[this.room.blockIndex];
+    return false;
+  }
+
+  draw() {
+    this.room.advanceAt = null;
+    this.room.resolving = false;
+    if (this.room.current) {
+      const { name, symbol } = this.room.current;
+      this.room.previousAnswer = { name, symbol };
+      if (this.canReturn(symbol) && !this.room.retryPool.includes(symbol)) this.room.retryPool.push(symbol);
+    }
+    if (this.room.recycling) this.room.pool = this.room.pool.filter((symbol) => this.canReturn(symbol));
     if (!this.room.pool.length) {
-      this.room.pool = Object.keys(elements[block]);
+      this.room.pool = this.room.retryPool.filter((symbol) => this.canReturn(symbol));
+      this.room.retryPool = [];
+      this.room.recycling = true;
     }
-    const available = this.room.pool.filter((symbol) =>
-      this.room.pool.length === 1 || symbol !== this.room.current?.symbol);
+    const previous = this.room.current?.symbol;
+    this.room.current = null;
+    if (!this.room.pool.length) return;
+    const available = this.room.pool.filter((symbol) => this.room.pool.length === 1 || symbol !== previous);
     const symbol = available[Math.floor(Math.random() * available.length)];
     this.room.pool.splice(this.room.pool.indexOf(symbol), 1);
+    const block = elementBlocks[symbol];
     this.room.drawId += 1;
     this.room.current = {
       block, symbol, name: elements[block][symbol], id: this.room.drawId,
       claimedBy: null, claimedName: null,
     };
+    this.room.advanceAt = Date.now() + clueDuration;
     for (const player of this.room.players) {
       player.ready = false;
       player.retryAt = 0;
@@ -356,18 +375,27 @@ export class BingoRoom extends DurableObject {
           mistakes: 0, retryAt: 0,
         };
         this.room = {
-          code, gameId: 1, revision: 0, rulesVersion: 2, phase: 'lobby', hostId: player.id,
-          winnerId: null, winnerIds: [], claims: {}, roundResults: [], roundClosed: false,
-          players: [player], current: null, blockIndex: 0, pool: [], drawId: 0,
+          code, gameId: 1, revision: 0, rulesVersion: 4, phase: 'lobby', hostId: player.id,
+          winnerId: null, winnerIds: [], claims: {},
+          players: [player], current: null, pool: Object.keys(allElements), drawId: 0,
+          retryPool: [], recycling: false, resolving: false, gameEndsAt: null, endReason: null,
           advanceAt: null, expiresAt: Date.now() + roomLifetime,
         };
         await this.save();
         return json(this.snapshot(player), 201);
       }
       if (!this.room) throw new RequestError(404, 'Room not found. Check the code or create a new room.');
+      if (this.settleDeadlines()) {
+        await this.save();
+        this.broadcast();
+      }
       let player = this.room.players.find((candidate) => candidate.session === session);
       if (action === 'join') {
         const body = await readBody(request);
+        if (this.settleDeadlines()) {
+          await this.save();
+          this.broadcast();
+        }
         const name = nickname(body.name);
         if (!player) {
           if (this.room.phase !== 'lobby') throw new RequestError(409, 'The game has started. Ask the host to reset the room before joining.');
@@ -406,6 +434,10 @@ export class BingoRoom extends DurableObject {
         return new Response(null, { status: 101, webSocket: client });
       }
       const body = await readBody(request);
+      if (this.settleDeadlines()) {
+        await this.save();
+        this.broadcast();
+      }
       if (Date.now() - player.lastActionAt < 100) throw new RequestError(429, 'Please wait a moment before the next action.');
       player.lastActionAt = Date.now();
       const host = player.id === this.room.hostId;
@@ -425,19 +457,20 @@ export class BingoRoom extends DurableObject {
         if (action === 'start' && this.room.phase !== 'lobby') throw new RequestError(409, 'This game has already started.');
         this.newGame(action === 'start' ? 'playing' : 'lobby');
       } else {
-        if (this.room.phase !== 'playing') throw new RequestError(409, 'Wait for the host to start the game.');
-        if (this.room.intermission) throw new RequestError(409, 'The round has ended. The next round is on its way.');
+        if (this.room.phase !== 'playing') throw new RequestError(409, this.room.phase === 'finished' ?
+          'This game has ended. Check the scoreboard.' : 'Wait for the host to start the game.');
+        if (!this.room.current) throw new RequestError(409, 'No claimable elements remain. Wait for the final scoreboard.');
         if (body.gameId !== this.room.gameId || !Number.isInteger(body.drawId) ||
             body.drawId !== this.room.current.id) {
           throw new RequestError(409, 'The clue changed. Please use the current element.');
         }
         if (action === 'mark') {
-          const { symbol, block } = this.room.current;
+          const { symbol } = this.room.current;
           const owner = this.room.claims[symbol];
           if (owner) throw new RequestError(409, `Already claimed by ${owner.name}. Wait for the next element.`);
-          if (!player.board[block].includes(body.symbol) || player.marked.includes(body.symbol) ||
+          if (!Object.values(player.board).some((row) => row.includes(body.symbol)) || player.marked.includes(body.symbol) ||
               this.room.claims[body.symbol]) {
-            throw new RequestError(422, 'Choose an available symbol from the active row on your board.');
+            throw new RequestError(422, 'Choose an available symbol on your board.');
           }
           if (player.retryAt > Date.now()) throw new RequestError(429, 'Take a moment, then try again.');
           if (body.symbol !== symbol) {
@@ -456,15 +489,13 @@ export class BingoRoom extends DurableObject {
           this.room.current.claimedName = player.name;
           player.marked.push(symbol);
           for (const candidate of this.room.players) candidate.ready = true;
-          if (player.board[block].every((candidate) => player.marked.includes(candidate))) {
-            this.closeRound('bingo');
-          }
-          this.queueDraw();
+          if (player.marked.length === 20) this.finish('cartella', player.id);
+          else this.queueDraw();
         } else if (action === 'ready') {
           player.ready = true;
           this.queueDraw();
         } else if (action === 'draw') {
-          if (this.room.advanceAt) throw new RequestError(409, 'The next clue is already on its way.');
+          if (this.room.resolving) throw new RequestError(409, 'The next clue is already on its way.');
           this.draw();
         } else {
           throw new RequestError(404, 'Unknown room action.');
@@ -515,7 +546,7 @@ export class BingoRoom extends DurableObject {
     if (!this.room.players.some((player) => player.id === this.room.hostId)) {
       this.room.hostId = (this.room.players.find((player) => this.online(player)) || this.room.players[0]).id;
     }
-    if (this.room.advanceAt && this.room.advanceAt <= now) this.draw();
+    this.settleDeadlines();
     this.queueDraw();
     await this.save();
     this.broadcast();

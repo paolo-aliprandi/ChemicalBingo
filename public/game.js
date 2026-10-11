@@ -18,6 +18,10 @@
   const celebrationMessage = document.getElementById('celebrationMessage');
   const mistakeProgress = document.getElementById('mistakeProgress');
   const answerReveal = document.getElementById('answerReveal');
+  const timerPanel = document.getElementById('timerPanel');
+  const gameTime = document.getElementById('gameTime');
+  const clueTime = document.getElementById('clueTime');
+  const clueCountdown = document.getElementById('clueCountdown');
   const roomMode = new URLSearchParams(location.search).has('room');
   let elements;
   let rows = [];
@@ -29,6 +33,29 @@
   let boardKey;
   let mistakes = 0;
   let cooldownTimer;
+  let draws = [];
+  const blockPoints = { s: 1, p: 2, d: 3, f: 4 };
+
+  function timeRemaining() {
+    return roomState ? Math.max(0, roomState.remainingMs - (performance.now() - roomState.receivedAt)) : 0;
+  }
+
+  function updateTimer() {
+    timerPanel.hidden = !roomMode;
+    if (!roomMode) return;
+    const milliseconds = roomState?.phase === 'lobby' || !roomState ? 600000 : timeRemaining();
+    const seconds = Math.ceil(milliseconds / 1000);
+    gameTime.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    timerPanel.classList.toggle('time-low', roomState?.phase === 'playing' && seconds <= 60);
+    const clueMs = roomState?.phase === 'playing' && current ?
+      Math.min(milliseconds, Math.max(0, roomState.clueRemainingMs - (performance.now() - roomState.receivedAt))) : 0;
+    clueTime.textContent = roomState?.phase === 'finished' ? t('Game finished', 'Partita terminata') :
+      !current ? t('Waiting for a clue', 'In attesa di un indizio') :
+      roomState.advancing ? t(`Next clue in ${Math.ceil(clueMs / 1000)}s`, `Prossimo indizio tra ${Math.ceil(clueMs / 1000)}s`) :
+      t(`${Math.ceil(clueMs / 1000)}s to claim`, `${Math.ceil(clueMs / 1000)}s per conquistarlo`);
+    clueCountdown.value = clueMs;
+    updateControls();
+  }
 
   function setStatus(message, tone = 'info') {
     status.textContent = message;
@@ -39,7 +66,7 @@
     const self = roomState?.players.find((player) => player.id === roomState.selfId);
     const coolingDown = roomMode && roomState?.retryEndsAt > Date.now();
     const unavailable = roomMode && (!roomState?.connected || roomState.pending ||
-      roomState.phase !== 'playing' || self?.ready || roomState.advancing || coolingDown);
+      roomState.phase !== 'playing' || self?.ready || roomState.advancing || coolingDown || timeRemaining() === 0);
     resetButton.disabled = loading || (roomMode && elements && (!roomState?.connected ||
       roomState.pending || roomState.hostId !== roomState.selfId));
     resetButton.textContent = roomMode ? t('Reset room', 'Reimposta stanza') : t('New game', 'Nuova partita');
@@ -55,18 +82,24 @@
       const count = row.cells.filter((cell) => cell.marked).length;
       matched += count;
       if (count === row.cells.length) completed += 1;
-      row.count.textContent = `${count}/5`;
+      const complete = count === row.cells.length;
+      row.element.classList.toggle('completed', complete);
+      row.count.textContent = complete ? t('Complete \u2713', 'Completa \u2713') : `${count}/5`;
+      row.element.setAttribute('aria-label', t(`${row.block} row${complete ? ', completed' : ''}`,
+        `Riga ${row.block}${complete ? ', completata' : ''}`));
       row.element.classList.toggle('active', row.block === current?.block);
       for (const cell of row.cells) {
-        cell.button.disabled = loading || busy || cell.marked || cell.taken || !current || unavailable ||
-          (roomMode && row.block !== current.block);
+        cell.button.disabled = loading || busy || cell.marked || cell.taken || !current || unavailable;
       }
     }
     progressLabel.textContent = roomMode ? t('Your score', 'Il tuo punteggio') : t('Elements matched', 'Elementi abbinati');
-    matchProgress.textContent = roomMode ? points(matched) : `${matched} / 20`;
-    blockProgress.textContent = roomMode ? roomState?.phase === 'finished' ? t('4 / 4 rounds', '4 / 4 turni') :
-      roomState?.phase === 'playing' ? t(`Round ${roomState.round} / 4`, `Turno ${roomState.round} / 4`) :
-        t('4 competitive rounds', '4 turni di sfida') : t(`${completed} / 4 blocks`, `${completed} / 4 orbitali`);
+    const score = roomMode ? self?.score || 0 : rows.reduce((sum, row) =>
+      sum + row.cells.filter((cell) => cell.marked).length * blockPoints[row.block], 0);
+    matchProgress.textContent = roomMode ? points(score) : `${matched} / 20 \u00b7 ${points(score)}`;
+    blockProgress.textContent = roomMode && roomState ?
+      t(`Draw ${roomState.drawn} \u00b7 ${roomState.totalElements} possible elements`,
+        `Estrazione ${roomState.drawn} \u00b7 ${roomState.totalElements} elementi possibili`) :
+      t(`${completed} / 4 rows complete`, `${completed} / 4 righe complete`);
     progress.value = matched;
     const count = roomMode ? self?.mistakes || 0 : mistakes;
     mistakeProgress.textContent = mistakeCount(count);
@@ -74,9 +107,10 @@
 
   function celebrateRow(row) {
     row.element.classList.add('completed', 'celebrating');
-    celebrationMessage.textContent = t(`${row.block} block complete`, `Orbitale ${row.block} completato`);
+    celebrationMessage.textContent = t(`${row.block} row complete`, `Riga ${row.block} completata`);
     celebration.hidden = false;
-    setStatus(t(`Bingo! The ${row.block} block is complete.`, `Bingo! L'orbitale ${row.block} \u00e8 completo.`), 'success');
+    setStatus(t(`Bingo! The ${row.block} row is complete. Keep going for the full board!`,
+      `Bingo! La riga ${row.block} \u00e8 completa. Continua per completare la cartella!`), 'success');
   }
 
   function roomStatus() {
@@ -91,17 +125,18 @@
     } else if (roomState.phase === 'finished') {
       const winners = roomState.players.filter((player) => roomState.winnerIds.includes(player.id));
       setStatus(winners.length ? t(
-        `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'tie for the win' : 'wins'} with ${points(winners[0].matched)}!`,
-        `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'vincono a pari merito' : 'vince'} con ${points(winners[0].matched)}!`) :
+        `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'tie for the win' : 'wins'} with ${points(winners[0].score)}!`,
+        `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'vincono a pari merito' : 'vince'} con ${points(winners[0].score)}!`) :
         t('No elements were claimed. Start a new game to compete.', 'Nessun elemento conquistato. Avvia una nuova sfida.'), 'success');
-    } else if (roomState.intermission) {
-      setStatus(roomState.round === 4 ? t('All four rounds complete. Your final ranking is coming up!',
-        'Tutti e quattro i turni completati. La classifica finale sta arrivando!') :
-        t('Round complete! Take a breath before the next orbital.', 'Turno completato! Una breve pausa prima del prossimo orbitale.'), 'success');
+    } else if (timeRemaining() === 0) {
+      setStatus(t('Time is up! Waiting for the final scoreboard...', 'Tempo scaduto! In attesa della classifica finale...'));
+    } else if (!current) {
+      setStatus(t('No claimable elements remain. The scoreboard will appear when the timer ends.',
+        'Non restano elementi da conquistare. La classifica apparir\u00e0 allo scadere del timer.'));
     } else if (current?.claimedBy) {
       const yours = current.claimedBy === roomState.selfId;
-      setStatus(yours ? t(`You claimed ${current.name}! +1 point. The next clue is on its way.`,
-        `Hai conquistato ${current.name}! +1 punto. Il prossimo indizio sta arrivando.`) :
+      setStatus(yours ? t(`You claimed ${current.name}! +${points(roomState.blockPoints[current.block])}. The next clue is on its way.`,
+        `Hai conquistato ${current.name}! +${points(roomState.blockPoints[current.block])}. Il prossimo indizio sta arrivando.`) :
         t(`${current.claimedName} got there first! No mistake counted. Next clue coming soon.`,
           `${current.claimedName} ha fatto prima! Nessun errore conteggiato. Prossimo indizio in arrivo.`), yours ? 'success' : 'race');
     } else if (roomState.retryEndsAt > Date.now()) {
@@ -112,8 +147,8 @@
     } else {
       const self = roomState.players.find((player) => player.id === roomState.selfId);
       const ready = roomState.players.filter((player) => player.ready).length;
-      setStatus(self?.ready ? t(`Ready! Waiting for the other players (${ready}/${roomState.players.length} ready).`,
-        `Pronto! In attesa degli altri (${ready}/${roomState.players.length} pronti).`) :
+      setStatus(self?.ready ? t(`Skipped! ${ready}/${roomState.players.length} ready. The clue advances automatically.`,
+        `Passato! ${ready}/${roomState.players.length} pronti. L'indizio avanza automaticamente.`) :
         t('Be first to claim the matching symbol! If you do not have it, choose Skip / Ready.',
           'Conquista per primo il simbolo corretto! Se non lo hai, scegli Passa / Pronto.'));
     }
@@ -146,7 +181,7 @@
     } else current = undefined;
     const lost = Boolean(current?.claimedBy && current.claimedBy !== state.selfId);
     prompt.parentElement.classList.toggle('lost-clue', lost);
-    prompt.parentElement.hidden = state.intermission || state.phase === 'finished';
+    prompt.parentElement.hidden = state.phase === 'finished';
     answerReveal.hidden = !state.previousAnswer;
     answerReveal.textContent = state.previousAnswer ?
       t(`Answer revealed: ${elementName(state.previousAnswer.symbol, state.previousAnswer.name)} = ${state.previousAnswer.symbol}`,
@@ -182,17 +217,25 @@
       prompt.textContent = winners.some((player) => player.id === state.selfId) ? t('You win!', 'Hai vinto!') : t('Game over', 'Partita terminata');
       activeBlock.textContent = winners.length ? t(`Winner${winners.length > 1 ? 's' : ''}: ${winners.map((player) => player.name).join(' & ')}`,
         `${winners.length > 1 ? 'Vincitori' : 'Vincitore'}: ${winners.map((player) => player.name).join(' & ')}`) :
-        t('No claims this game. Try a new round!', 'Nessun elemento conquistato. Prova una nuova partita!');
+        t('No claims this game. Try a new game!', 'Nessun elemento conquistato. Prova una nuova partita!');
+    } else if (!current) {
+      clueLabel.textContent = t('Draw pool complete', 'Estrazioni completate');
+      prompt.textContent = t('No elements remaining', 'Nessun elemento rimasto');
+      activeBlock.textContent = t('Final results when the timer ends.', 'Risultati finali allo scadere del timer.');
     } else {
       clueLabel.textContent = current.claimedBy ? lost ? t(`Claimed by ${current.claimedName}`, `Conquistato da ${current.claimedName}`) :
         t('You claimed it!', 'Lo hai conquistato!') : t('Race to claim this element', 'Conquista questo elemento');
       prompt.textContent = current.name;
       activeBlock.textContent = current.claimedBy ? lost ?
         t(`${current.claimedName} took this element. Next clue coming soon.`, `${current.claimedName} ha conquistato l'elemento. Prossimo indizio in arrivo.`) :
-        t('+1 point! Next clue coming soon.', '+1 punto! Prossimo indizio in arrivo.') :
-        t(`${current.block} round \u00b7 First correct claim wins.`, `Turno ${current.block} \u00b7 Il primo abbinamento corretto vince.`);
+        t(`+${points(state.blockPoints[current.block])}! Next clue coming soon.`, `+${points(state.blockPoints[current.block])}! Prossimo indizio in arrivo.`) :
+        t(`All 118 elements \u00b7 This claim is worth ${points(state.blockPoints[current.block])}.`,
+          `Tutti i 118 elementi \u00b7 Questo elemento vale ${points(state.blockPoints[current.block])}.`);
     }
-    if (completedRow) {
+    if (state.phase === 'finished') {
+      clearFeedback();
+      roomStatus();
+    } else if (completedRow) {
       clearFeedback();
       busy = true;
       celebrateRow(completedRow);
@@ -205,6 +248,7 @@
       roomStatus();
     }
     updateControls();
+    updateTimer();
   }
 
   function clearFeedback() {
@@ -221,31 +265,28 @@
   }
 
   function drawElement() {
-    const row = rows.find((candidate) => candidate.cells.some((cell) => !cell.marked));
-    if (!row) {
+    if (rows.every((row) => row.cells.every((cell) => cell.marked))) {
       current = undefined;
       prompt.textContent = 'Bingo!';
       clueLabel.textContent = t('Board complete', 'Cartella completata');
       activeBlock.textContent = t('20 elements discovered. Nicely done!', '20 elementi scoperti. Complimenti!');
-      setStatus(t('Congratulations! You completed all four blocks. Start a new game to play again.',
-        'Complimenti! Hai completato tutti e quattro gli orbitali. Avvia una nuova partita per giocare ancora.'), 'success');
+      setStatus(t('Congratulations! You completed your board. Start a new game to play again.',
+        'Complimenti! Hai completato la cartella. Avvia una nuova partita per giocare ancora.'), 'success');
       updateControls();
       return;
     }
 
-    if (row.draws.length === 0) {
-      row.draws = Object.entries(elements[row.block]).filter(([symbol]) =>
-        !row.cells.some((cell) => cell.marked && cell.symbol === symbol));
+    if (draws.length === 0) {
+      draws = blocks.flatMap((block) => Object.entries(elements[block]).map(([symbol, name]) => ({ symbol, name, block })))
+        .filter(({ symbol }) => !rows.some((row) => row.cells.some((cell) => cell.marked && cell.symbol === symbol)));
     }
-    const available = row.draws.filter(([symbol]) =>
-      row.draws.length === 1 || symbol !== current?.symbol);
+    const available = draws.filter(({ symbol }) => draws.length === 1 || symbol !== current?.symbol);
     const chosen = available[Math.floor(Math.random() * available.length)];
-    row.draws.splice(row.draws.indexOf(chosen), 1);
-    const [symbol, name] = chosen;
-    current = { symbol, name: elementName(symbol, name), block: row.block };
+    draws.splice(draws.indexOf(chosen), 1);
+    current = { ...chosen, name: elementName(chosen.symbol, chosen.name) };
     clueLabel.textContent = t('Find this element', 'Trova questo elemento');
-    activeBlock.textContent = t(`${row.block} block \u00b7 Not on your board? Skip to the next element.`,
-      `Orbitale ${row.block} \u00b7 Non lo hai? Passa al prossimo elemento.`);
+    activeBlock.textContent = t('All 118 elements \u00b7 Not on your board? Skip to the next element.',
+      'Tutti i 118 elementi \u00b7 Non lo hai? Passa al prossimo elemento.');
     prompt.textContent = current.name;
     updateControls();
   }
@@ -302,6 +343,7 @@
     grid.replaceChildren();
     rows = blocks.map((block) => {
       const element = grid.insertRow();
+      element.dataset.block = block;
       const heading = document.createElement('th');
       heading.scope = 'row';
       heading.setAttribute('aria-label', t(`${block} block`, `Orbitale ${block}`));
@@ -313,8 +355,12 @@
       count.setAttribute('aria-hidden', 'true');
       heading.appendChild(label);
       heading.appendChild(count);
+      const weight = document.createElement('span');
+      weight.className = 'block-value';
+      weight.textContent = `+${blockPoints[block]}`;
+      heading.appendChild(weight);
       element.appendChild(heading);
-      const row = { block, element, count, cells: [], draws: Object.entries(elements[block]) };
+      const row = { block, element, count, cells: [] };
       const available = presetBoard ? presetBoard[block].map((symbol) => [symbol, elements[block][symbol]]) :
         Object.entries(elements[block]);
 
@@ -371,6 +417,7 @@
   async function resetGame() {
     if (loading) return;
     clearFeedback();
+    draws = [];
     mistakes = 0;
     answerReveal.hidden = true;
     current = undefined;
@@ -413,6 +460,7 @@
   }
 
   window.addEventListener('bingo:room', (event) => applyRoom(event.detail));
+  if (roomMode) setInterval(updateTimer, 250);
   window.addEventListener('bingo:language', () => {
     for (const row of rows) {
       row.element.querySelector('th').setAttribute('aria-label', t(`${row.block} block`, `Orbitale ${row.block}`));
@@ -425,8 +473,8 @@
     if (current) {
       current.name = elementName(current.symbol, elements[current.block][current.symbol]);
       prompt.textContent = current.name;
-      activeBlock.textContent = t(`${current.block} block \u00b7 Not on your board? Skip to the next element.`,
-        `Orbitale ${current.block} \u00b7 Non lo hai? Passa al prossimo elemento.`);
+      activeBlock.textContent = t('All 118 elements \u00b7 Not on your board? Skip to the next element.',
+        'Tutti i 118 elementi \u00b7 Non lo hai? Passa al prossimo elemento.');
     } else if (rows.length && !loading) {
       prompt.textContent = 'Bingo!';
       clueLabel.textContent = t('Board complete', 'Cartella completata');
@@ -444,7 +492,7 @@
   window.addEventListener('bingo:answer', (event) => {
     const answer = event.detail;
     if (answer.gameId !== roomState?.gameId || answer.drawId !== current?.id ||
-        current.claimedBy || roomState.intermission) return;
+        current.claimedBy) return;
     const cell = rows.flatMap((row) => row.cells).find((candidate) => candidate.symbol === answer.symbol);
     if (!cell) return;
     clearFeedback();

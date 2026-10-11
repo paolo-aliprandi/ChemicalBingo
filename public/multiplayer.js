@@ -1,7 +1,7 @@
 'use strict';
 
 (() => {
-  const { t, points, mistakes, rounds, error: translateError } = window.BingoLanguage;
+  const { t, points, mistakes, error: translateError } = window.BingoLanguage;
   const code = new URLSearchParams(location.search).get('room')?.toUpperCase();
   if (!code) return;
   const panel = document.getElementById('roomPanel');
@@ -11,22 +11,18 @@
   const players = document.getElementById('playerList');
   const message = document.getElementById('roomMessage');
   const start = document.getElementById('startRoom');
-  const draw = document.getElementById('drawNow');
   const leave = document.getElementById('leaveRoom');
-  const roundResult = document.getElementById('roundResult');
-  const spotlight = document.getElementById('roundSpotlight');
-  const spotlightTitle = document.getElementById('roundSpotlightTitle');
-  const spotlightDetail = document.getElementById('roundSpotlightDetail');
-  const spotlightNext = document.getElementById('roundSpotlightNext');
   const results = document.getElementById('resultsPanel');
   const podium = document.getElementById('podium');
   const ranking = document.getElementById('finalRanking');
   const resultsTitle = document.getElementById('resultsTitle');
   const replay = document.getElementById('playAgain');
   const replayHint = document.getElementById('replayHint');
+  const resultsReason = document.getElementById('resultsReason');
+  const resultsHome = document.getElementById('resultsHome');
   let resultsKey;
-  const roomHint = () => t('First valid claim wins the element and scores 1 point. Only the host can start, reset, or draw early.',
-    'Il primo abbinamento valido conquista l\'elemento e 1 punto. Solo l\'organizzatore pu\u00f2 avviare, reimpostare o estrarre in anticipo.');
+  const roomHint = () => t('Exclusive claims: s +1, p +2, d +3, f +4. Clues advance automatically. Only the host can start or reset.',
+    'Conquiste esclusive: s +1, p +2, d +3, f +4. Gli indizi avanzano automaticamente. Solo l\'organizzatore pu\u00f2 avviare o reimpostare.');
   panel.hidden = false;
   codeLabel.textContent = code;
   let state;
@@ -46,22 +42,21 @@
   function render() {
     invite.value = `${location.origin}/?room=${encodeURIComponent(code)}&lang=${window.BingoLanguage.language}`;
     document.getElementById('instructions').textContent = t(
-      'First correct claim wins the element and 1 point. Mistakes are tracked, but never cost points. Retry after a short pause; skips and lost races are not mistakes.',
-      'Il primo abbinamento corretto conquista l\'elemento e 1 punto. Gli errori sono conteggiati, ma non tolgono punti. Riprova dopo una breve pausa; passare o perdere la corsa non \u00e8 un errore.');
+      '10 minutes, all 118 elements, no orbital rounds. A full cartella wins immediately; otherwise the highest score wins at time-up. Skipped elements can return only if someone still needs them.',
+      '10 minuti, tutti i 118 elementi, nessun turno per orbitale. La cartella completa vince subito; altrimenti vince il punteggio pi\u00f9 alto allo scadere. Gli elementi passati tornano solo se servono ancora a qualcuno.');
     if (!state) return;
     const host = state.selfId === state.hostId;
     start.hidden = state.phase !== 'lobby' || !host;
-    draw.hidden = state.phase !== 'playing' || !host;
     start.disabled = pending || !connected;
-    draw.disabled = pending || !connected || state.advancing;
     leave.disabled = pending;
-    const ordered = [...state.players].sort((a, b) => b.matched - a.matched);
+    resultsHome.disabled = pending;
+    const ordered = [...state.players].sort((a, b) => b.score - a.score);
     const fragments = ordered.map((player) => {
       const item = document.createElement('li');
       const name = document.createElement('strong');
       name.textContent = `${player.name}${player.id === state.selfId ? t(' (you)', ' (tu)') : ''}`;
       const detail = document.createElement('span');
-      const parts = [points(player.matched), mistakes(player.mistakes), rounds(player.roundWins)];
+      const parts = [points(player.score), t(`${player.matched}/20 marked`, `${player.matched}/20 abbinati`), mistakes(player.mistakes)];
       if (player.host) parts.push(t('Host', 'Organizzatore'));
       if (!player.online) parts.push(t('Reconnecting', 'Riconnessione'));
       else if (player.ready && state.phase === 'playing') parts.push(t('Ready', 'Pronto'));
@@ -71,22 +66,6 @@
       return item;
     });
     players.replaceChildren(...fragments);
-    const last = state.roundResults.at(-1);
-    roundResult.hidden = !last;
-    roundResult.textContent = last ? last.winners.length ?
-      t(`${last.block} round: ${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'tie' : 'wins'} with ${points(last.winners[0].score)}.`,
-        `Turno ${last.block}: ${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'vincono a pari merito' : 'vince'} con ${points(last.winners[0].score)}.`) :
-      t(`${last.block} round ended with no claims.`, `Turno ${last.block} concluso senza elementi conquistati.`) : '';
-    spotlight.hidden = !state.intermission;
-    if (state.intermission) {
-      spotlightTitle.textContent = t(`${last.block} round complete!`, `Turno ${last.block} completato!`);
-      spotlightDetail.textContent = last.winners.length ?
-        t(`${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'share the win' : 'wins'} with ${points(last.winners[0].score)}.`,
-          `${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'vincono a pari merito' : 'vince'} con ${points(last.winners[0].score)}.`) :
-        t('No claims this round. A fresh chance is coming up.', 'Nessun elemento conquistato. Arriva una nuova occasione.');
-      spotlightNext.textContent = state.round === 4 ? t('Next up: the final podium', 'A seguire: il podio finale') :
-        t(`Next up: ${['s', 'p', 'd', 'f'][state.round]} orbital`, `A seguire: orbitale ${['s', 'p', 'd', 'f'][state.round]}`);
-    }
     const showResults = state.phase === 'finished' && results.hidden;
     results.hidden = state.phase !== 'finished';
     replay.hidden = !host;
@@ -95,6 +74,9 @@
       'Gioca ancora riporta tutti nella sala d\'attesa. Avvia quando i giocatori sono pronti.') :
       t('Waiting for the host to start another game.', 'In attesa che l\'organizzatore avvii un\'altra partita.');
     if (state.phase === 'finished') {
+      resultsReason.textContent = state.endReason === 'cartella' ?
+        t('Full cartella! The game stopped immediately.', 'Cartella completa! La partita si \u00e8 fermata subito.') :
+        t('10 minutes are up. Final scores decide the winners.', 'I 10 minuti sono scaduti. I punteggi finali decidono i vincitori.');
       const key = `${state.gameId}:${JSON.stringify(state.players)}`;
       if (key !== resultsKey) {
         resultsKey = key;
@@ -103,7 +85,7 @@
           t(`${winners[0].name} wins!`, `${winners[0].name} vince!`) : t('Ready for another try?', 'Pronti a riprovare?');
         let place = 0;
         const rows = ordered.map((player, index) => {
-          if (index === 0 || player.matched !== ordered[index - 1].matched) place = index + 1;
+          if (index === 0 || player.score !== ordered[index - 1].score) place = index + 1;
           const item = document.createElement('li');
           item.classList.toggle('is-you', player.id === state.selfId);
           const badge = document.createElement('span');
@@ -112,7 +94,8 @@
           const name = document.createElement('strong');
           name.textContent = `${player.name}${player.id === state.selfId ? t(' (you)', ' (tu)') : ''}`;
           const stats = document.createElement('span');
-          stats.textContent = [points(player.matched), mistakes(player.mistakes), rounds(player.roundWins)].join(' \u00b7 ');
+          stats.textContent = [points(player.score), t(`${player.matched}/20 marked`, `${player.matched}/20 abbinati`),
+            mistakes(player.mistakes)].join(' \u00b7 ');
           const detail = document.createElement('div');
           detail.append(name, stats);
           item.append(badge, detail);
@@ -120,10 +103,10 @@
         });
         ranking.replaceChildren(...rows);
         const leaders = ordered.filter((player) =>
-          player.matched > 0 && ordered.filter((other) => other.matched > player.matched).length < 3);
+          player.score > 0 && ordered.filter((other) => other.score > player.score).length < 3);
         podium.replaceChildren(...leaders.map((player) => {
           const card = document.createElement('div');
-          const rank = ordered.filter((other) => other.matched > player.matched).length + 1;
+          const rank = ordered.filter((other) => other.score > player.score).length + 1;
           card.className = `podium-place place-${rank}`;
           const badge = document.createElement('span');
           badge.className = 'podium-rank';
@@ -131,7 +114,7 @@
           const name = document.createElement('strong');
           name.textContent = player.name;
           const score = document.createElement('span');
-          score.textContent = points(player.matched);
+          score.textContent = points(player.score);
           card.append(badge, name, score);
           return card;
         }));
@@ -148,6 +131,7 @@
   function acceptState(next) {
     if (!state || next.revision >= state.revision) {
       next.retryEndsAt = Date.now() + next.retryAfterMs;
+      next.receivedAt = performance.now();
       state = next;
     }
     render();
@@ -302,8 +286,11 @@
 
   start.addEventListener('click', () => command('start'));
   replay.addEventListener('click', () => command('reset'));
-  draw.addEventListener('click', () => command('draw', { drawId: state.current.id }));
   leave.addEventListener('click', () => {
+    if (stopped) location.assign(`./?lang=${window.BingoLanguage.language}`);
+    else command('leave');
+  });
+  resultsHome.addEventListener('click', () => {
     if (stopped) location.assign(`./?lang=${window.BingoLanguage.language}`);
     else command('leave');
   });
