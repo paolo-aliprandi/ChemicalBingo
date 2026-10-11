@@ -269,6 +269,176 @@
       color: #246447;
     }
 
+    #status[data-tone="race"] {
+      color: #76531d;
+    }
+
+    .answer-reveal {
+      margin: 0 0 18px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #e9f0f8;
+      color: #34516e;
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .round-spotlight, .results-card {
+      margin: 24px 0;
+      padding: 28px;
+      border: 1px solid #d7d1eb;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #f3efff, #fff8e6);
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .round-spotlight .eyebrow, .results-card .eyebrow {
+      color: #66528e;
+    }
+
+    .round-spotlight h2, .results-card h2 {
+      margin: 10px 0;
+      font-size: clamp(24px, 6vw, 34px);
+    }
+
+    #roundSpotlightDetail {
+      line-height: 1.6;
+    }
+
+    #roundSpotlightNext {
+      margin-top: 18px;
+      color: #66528e;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .podium {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+      align-items: end;
+      gap: 12px;
+      margin: 24px 0;
+    }
+
+    .podium-place {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+      padding: 20px 12px;
+      border: 1px solid #d8d6e4;
+      border-radius: 14px;
+      background: #fff;
+      animation: podium-rise 500ms ease both;
+    }
+
+    .podium-place.place-1 {
+      padding-top: 32px;
+      border-color: #d3b45b;
+      background: #fff6d6;
+    }
+
+    .podium-rank {
+      color: #66528e;
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .place-1 .podium-rank {
+      color: #80621b;
+    }
+
+    .podium-place > span:last-child {
+      color: #586b65;
+      font-size: 13px;
+    }
+
+    .final-ranking {
+      padding: 0;
+      margin: 24px 0;
+      list-style: none;
+      text-align: left;
+    }
+
+    .final-ranking li {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 8px;
+      padding: 14px;
+      border: 1px solid #e0e4e0;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .final-ranking li.is-you {
+      border-color: #296b59;
+    }
+
+    .rank-badge {
+      display: grid;
+      place-items: center;
+      flex: 0 0 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f0edf8;
+      color: #66528e;
+      font-weight: 750;
+    }
+
+    .final-ranking li div {
+      min-width: 0;
+    }
+
+    .final-ranking strong, .final-ranking div span {
+      display: block;
+    }
+
+    .final-ranking div span {
+      margin-top: 5px;
+      color: #586b65;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    #playAgain {
+      min-height: 46px;
+      padding: 12px 24px;
+      border: 0;
+      border-radius: 10px;
+      background: #296b59;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    #playAgain:disabled {
+      opacity: 0.5;
+    }
+
+    #replayHint {
+      margin-top: 14px;
+    }
+
+    #mistakeProgress {
+      margin-top: 12px;
+      color: #76531d;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    @keyframes podium-rise {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .board-card {
       position: relative;
       padding: 24px;
@@ -566,6 +736,10 @@
       font-weight: 650;
     }
 
+    .round-spotlight, .results-card {
+      padding: 22px 16px;
+    }
+
     .controls #nextElement {
       border-color: #296b59;
       background: #296b59;
@@ -645,7 +819,7 @@
 
     @media (prefers-reduced-motion: reduce) {
       .celebration, tr.celebrating .element, .element.taken .element-symbol,
-      .element.taken .claim-owner, .clue-card.lost-clue #currentElement {
+      .element.taken .claim-owner, .clue-card.lost-clue #currentElement, .podium-place {
         animation: none;
       }
 
@@ -695,12 +869,30 @@
 
     <p id="instructions">Elements are drawn from the whole active block. Match the symbol if it's on your board, or skip if it isn't. Complete s, p, d, then f.</p>
 
+    <section id="roundSpotlight" class="round-spotlight" hidden aria-labelledby="roundSpotlightTitle" aria-live="polite">
+      <p class="eyebrow">Round results</p>
+      <h2 id="roundSpotlightTitle"></h2>
+      <p id="roundSpotlightDetail"></p>
+      <p id="roundSpotlightNext"></p>
+    </section>
+
+    <section id="resultsPanel" class="results-card" hidden aria-labelledby="resultsTitle">
+      <p class="eyebrow">The final podium</p>
+      <h2 id="resultsTitle" tabindex="-1"></h2>
+      <p class="hint">Points decide the winner. Mistakes help you learn, not lose points.</p>
+      <div id="podium" class="podium"></div>
+      <ol id="finalRanking" class="final-ranking" aria-label="Final ranking"></ol>
+      <button id="playAgain" type="button">Play again</button>
+      <p id="replayHint" class="hint"></p>
+    </section>
+
     <section class="clue-card" aria-label="Current clue">
       <p class="eyebrow" id="clueLabel">Find this element</p>
       <p id="currentElement" aria-live="polite" aria-atomic="true"></p>
       <p id="activeBlock">Preparing your board...</p>
     </section>
     <p id="status" role="status" aria-atomic="true">Loading elements...</p>
+    <p id="answerReveal" class="answer-reveal" hidden></p>
 
     <section class="board-card" aria-labelledby="boardTitle">
       <div class="board-heading">
@@ -717,6 +909,7 @@
         <span id="matchProgress">0 / 20</span>
       </div>
       <progress id="gameProgress" value="0" max="20"></progress>
+      <p id="mistakeProgress" aria-live="polite" aria-atomic="true">0 mistakes</p>
     </section>
 
     <div class="controls">

@@ -10,6 +10,8 @@ Each board has four rows of five unique symbols. Clues are drawn from **all elem
 
 Correct answers turn green. Wrong answers briefly turn red and let you retry. Completed rows play a wave animation with a Bingo banner; reduced-motion preferences are respected. Use a mouse, touch, or Tab and Enter/Space.
 
+Wrong answers add one mistake to your counter but never deduct points. In multiplayer, mistakes and a one-second retry cooldown are tracked by the server and survive reconnects. Skips, stale requests, unavailable symbols, and lost claim races do not count as mistakes. The previous clue's correct name and symbol are revealed only after that clue ends.
+
 In single-player mode, **Next element** skips a clue and **New game** creates a fresh board.
 
 ## Multiplayer rooms
@@ -25,6 +27,8 @@ On opponents' screens, the symbol and shared clue turn red and fall away; the cl
 A successful claim automatically advances the shared clue after a short feedback pause. If nobody can claim it, use **Skip / Ready**; when everyone skips, the clue advances. The host can also use **Draw now** to move on early.
 
 Each block is a competitive round. Elements are drawn once, without recycling. A round ends as soon as someone completes a five-symbol Bingo, or when all elements in that block have been drawn. The highest round score wins that round; ties are shared. This ensures rounds can finish even when opponents have taken symbols needed for your row. After all four rounds, the highest total score wins the game; ties are shared. A game with no claims has no winner.
+
+Between rounds, a synchronized three-second pause announces the round winner and upcoming orbital. After the final round, a podium and full ranking show points, mistakes, and round wins; equal scores share the same rank. The host can select **Play again** to return everyone to the lobby. Existing competitive rooms keep their progress when mistake tracking is introduced, starting their counters at zero.
 
 Only the host can start, reset, or draw early. **Reset room** returns everyone to the lobby so more friends can join. Players cannot join mid-game. **Leave room** returns to the home page; if the host leaves, another player becomes host.
 

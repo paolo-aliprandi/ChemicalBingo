@@ -146,6 +146,12 @@ export class BingoRoom extends DurableObject {
         await this.save();
         this.broadcast();
       }
+      if (this.room) {
+        for (const player of this.room.players) {
+          player.mistakes ??= 0;
+          player.retryAt ??= 0;
+        }
+      }
     });
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -167,6 +173,9 @@ export class BingoRoom extends DurableObject {
       claims: this.room.claims,
       round: Math.min(this.room.blockIndex + 1, blocks.length),
       roundResults: this.room.roundResults,
+      intermission: Boolean(this.room.intermission),
+      previousAnswer: this.room.previousAnswer || null,
+      retryAfterMs: Math.max(0, player.retryAt - Date.now()),
       current: this.room.current ? {
         name: this.room.current.name,
         block: this.room.current.block,
@@ -184,6 +193,7 @@ export class BingoRoom extends DurableObject {
         online: this.online(candidate),
         ready: candidate.ready,
         matched: candidate.marked.length,
+        mistakes: candidate.mistakes,
         blocks: blocks.filter((block) =>
           candidate.board[block].every((symbol) => candidate.marked.includes(symbol))).length,
         roundWins: this.room.roundResults.filter((result) =>
@@ -240,10 +250,14 @@ export class BingoRoom extends DurableObject {
     this.room.claims = {};
     this.room.roundResults = [];
     this.room.roundClosed = false;
+    this.room.intermission = false;
+    this.room.previousAnswer = null;
     for (const player of this.room.players) {
       player.board = newBoard();
       player.marked = [];
       player.ready = false;
+      player.mistakes = 0;
+      player.retryAt = 0;
     }
     if (phase === 'playing') this.draw();
   }
@@ -266,8 +280,18 @@ export class BingoRoom extends DurableObject {
 
   draw() {
     this.room.advanceAt = null;
+    if (this.room.current) {
+      const { name, symbol } = this.room.current;
+      this.room.previousAnswer = { name, symbol };
+    }
     if (this.room.current && (this.room.roundClosed || !this.room.pool.length)) {
       if (!this.room.roundClosed) this.closeRound('pool');
+      if (!this.room.intermission) {
+        this.room.intermission = true;
+        this.room.advanceAt = Date.now() + 3000;
+        return;
+      }
+      this.room.intermission = false;
       this.room.blockIndex += 1;
       this.room.pool = [];
       this.room.current = null;
@@ -297,6 +321,7 @@ export class BingoRoom extends DurableObject {
     };
     for (const player of this.room.players) {
       player.ready = false;
+      player.retryAt = 0;
     }
     this.queueDraw();
   }
@@ -327,6 +352,7 @@ export class BingoRoom extends DurableObject {
         const player = {
           id: crypto.randomUUID(), session, name: nickname(body.name),
           board: newBoard(), marked: [], ready: false, offlineAt: Date.now(), lastActionAt: 0,
+          mistakes: 0, retryAt: 0,
         };
         this.room = {
           code, gameId: 1, revision: 0, rulesVersion: 2, phase: 'lobby', hostId: player.id,
@@ -351,6 +377,7 @@ export class BingoRoom extends DurableObject {
           player = {
             id: crypto.randomUUID(), session, name, board: newBoard(),
             marked: [], ready: false, offlineAt: Date.now(), lastActionAt: 0,
+            mistakes: 0, retryAt: 0,
           };
           this.room.players.push(player);
         }
@@ -398,17 +425,31 @@ export class BingoRoom extends DurableObject {
         this.newGame(action === 'start' ? 'playing' : 'lobby');
       } else {
         if (this.room.phase !== 'playing') throw new RequestError(409, 'Wait for the host to start the game.');
+        if (this.room.intermission) throw new RequestError(409, 'The round has ended. The next round is on its way.');
         if (body.gameId !== this.room.gameId || !Number.isInteger(body.drawId) ||
             body.drawId !== this.room.current.id) {
           throw new RequestError(409, 'The clue changed. Please use the current element.');
         }
         if (action === 'mark') {
           const { symbol, block } = this.room.current;
-          if (body.symbol !== symbol || !player.board[block].includes(symbol)) {
-            throw new RequestError(422, 'That symbol does not match the current clue on your board.');
-          }
           const owner = this.room.claims[symbol];
           if (owner) throw new RequestError(409, `Already claimed by ${owner.name}. Wait for the next element.`);
+          if (!player.board[block].includes(body.symbol) || player.marked.includes(body.symbol) ||
+              this.room.claims[body.symbol]) {
+            throw new RequestError(422, 'Choose an available symbol from the active row on your board.');
+          }
+          if (player.retryAt > Date.now()) throw new RequestError(429, 'Take a moment, then try again.');
+          if (body.symbol !== symbol) {
+            player.mistakes += 1;
+            player.retryAt = Date.now() + 1000;
+            this.room.expiresAt = Date.now() + roomLifetime;
+            await this.save();
+            this.broadcast();
+            return json({
+              ...this.snapshot(player),
+              answer: { correct: false, symbol: body.symbol, gameId: body.gameId, drawId: body.drawId },
+            });
+          }
           this.room.claims[symbol] = { playerId: player.id, name: player.name };
           this.room.current.claimedBy = player.id;
           this.room.current.claimedName = player.name;

@@ -13,12 +13,23 @@
   const draw = document.getElementById('drawNow');
   const leave = document.getElementById('leaveRoom');
   const roundResult = document.getElementById('roundResult');
+  const spotlight = document.getElementById('roundSpotlight');
+  const spotlightTitle = document.getElementById('roundSpotlightTitle');
+  const spotlightDetail = document.getElementById('roundSpotlightDetail');
+  const spotlightNext = document.getElementById('roundSpotlightNext');
+  const results = document.getElementById('resultsPanel');
+  const podium = document.getElementById('podium');
+  const ranking = document.getElementById('finalRanking');
+  const resultsTitle = document.getElementById('resultsTitle');
+  const replay = document.getElementById('playAgain');
+  const replayHint = document.getElementById('replayHint');
+  let resultsKey;
   const roomHint = 'First valid claim wins the element and scores 1 point. Only the host can start, reset, or draw early.';
   panel.hidden = false;
   codeLabel.textContent = code;
   invite.value = `${location.origin}/?room=${encodeURIComponent(code)}`;
   document.getElementById('instructions').textContent =
-    'Compete for shared clues: the first correct claim wins the element and scores 1 point. Opponents lose that symbol. Four rounds; highest total score wins.';
+    'First correct claim wins the element and 1 point. Mistakes are tracked, but never cost points. Retry after a short pause; skips and lost races are not mistakes.';
   let state;
   let socket;
   let pending = false;
@@ -41,12 +52,15 @@
     start.disabled = pending || !connected;
     draw.disabled = pending || !connected || state.advancing;
     leave.disabled = pending;
-    const fragments = [...state.players].sort((a, b) => b.matched - a.matched).map((player) => {
+    const ordered = [...state.players].sort((a, b) => b.matched - a.matched);
+    const fragments = ordered.map((player) => {
       const item = document.createElement('li');
       const name = document.createElement('strong');
       name.textContent = `${player.name}${player.id === state.selfId ? ' (you)' : ''}`;
       const detail = document.createElement('span');
-      const parts = [`${player.matched} ${player.matched === 1 ? 'point' : 'points'}`, `${player.roundWins} round wins`];
+      const parts = [`${player.matched} ${player.matched === 1 ? 'point' : 'points'}`,
+        `${player.mistakes} ${player.mistakes === 1 ? 'mistake' : 'mistakes'}`,
+        `${player.roundWins} ${player.roundWins === 1 ? 'round win' : 'round wins'}`];
       if (player.host) parts.push('Host');
       if (!player.online) parts.push('Reconnecting');
       else if (player.ready && state.phase === 'playing') parts.push('Ready');
@@ -59,15 +73,81 @@
     const last = state.roundResults.at(-1);
     roundResult.hidden = !last;
     roundResult.textContent = last ? last.winners.length ?
-      `${last.block} round: ${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'tie' : 'wins'} with ${last.winners[0].score} points.` :
+      `${last.block} round: ${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'tie' : 'wins'} with ${last.winners[0].score} ${last.winners[0].score === 1 ? 'point' : 'points'}.` :
       `${last.block} round ended with no claims.` : '';
+    spotlight.hidden = !state.intermission;
+    if (state.intermission) {
+      spotlightTitle.textContent = `${last.block} round complete!`;
+      spotlightDetail.textContent = last.winners.length ?
+        `${last.winners.map((winner) => winner.name).join(' & ')} ${last.winners.length > 1 ? 'share the win' : 'wins'} with ${last.winners[0].score} ${last.winners[0].score === 1 ? 'point' : 'points'}.` :
+        'No claims this round. A fresh chance is coming up.';
+      spotlightNext.textContent = state.round === 4 ? 'Next up: the final podium' :
+        `Next up: ${['s', 'p', 'd', 'f'][state.round]} orbital`;
+    }
+    const showResults = state.phase === 'finished' && results.hidden;
+    results.hidden = state.phase !== 'finished';
+    replay.hidden = !host;
+    replay.disabled = pending || !connected;
+    replayHint.textContent = host ? 'Play again returns everyone to the lobby. Start when your players are ready.' :
+      'Waiting for the host to start another game.';
+    if (state.phase === 'finished') {
+      const key = `${state.gameId}:${JSON.stringify(state.players)}`;
+      if (key !== resultsKey) {
+        resultsKey = key;
+        const winners = ordered.filter((player) => state.winnerIds.includes(player.id));
+        resultsTitle.textContent = winners.length > 1 ? 'A shared victory!' : winners.length ?
+          `${winners[0].name} wins!` : 'Ready for another try?';
+        let place = 0;
+        const rows = ordered.map((player, index) => {
+          if (index === 0 || player.matched !== ordered[index - 1].matched) place = index + 1;
+          const item = document.createElement('li');
+          item.classList.toggle('is-you', player.id === state.selfId);
+          const badge = document.createElement('span');
+          badge.className = 'rank-badge';
+          badge.textContent = String(place);
+          const name = document.createElement('strong');
+          name.textContent = `${player.name}${player.id === state.selfId ? ' (you)' : ''}`;
+          const stats = document.createElement('span');
+          stats.textContent = `${player.matched} ${player.matched === 1 ? 'point' : 'points'} \u00b7 ` +
+            `${player.mistakes} ${player.mistakes === 1 ? 'mistake' : 'mistakes'} \u00b7 ` +
+            `${player.roundWins} ${player.roundWins === 1 ? 'round win' : 'round wins'}`;
+          const detail = document.createElement('div');
+          detail.append(name, stats);
+          item.append(badge, detail);
+          return item;
+        });
+        ranking.replaceChildren(...rows);
+        const leaders = ordered.filter((player) =>
+          player.matched > 0 && ordered.filter((other) => other.matched > player.matched).length < 3);
+        podium.replaceChildren(...leaders.map((player) => {
+          const card = document.createElement('div');
+          const rank = ordered.filter((other) => other.matched > player.matched).length + 1;
+          card.className = `podium-place place-${rank}`;
+          const badge = document.createElement('span');
+          badge.className = 'podium-rank';
+          badge.textContent = `#${rank}`;
+          const name = document.createElement('strong');
+          name.textContent = player.name;
+          const score = document.createElement('span');
+          score.textContent = `${player.matched} ${player.matched === 1 ? 'point' : 'points'}`;
+          card.append(badge, name, score);
+          return card;
+        }));
+        if (showResults) resultsTitle.focus();
+      }
+    } else {
+      resultsKey = undefined;
+    }
     window.dispatchEvent(new CustomEvent('bingo:room', {
       detail: { ...state, connected, pending },
     }));
   }
 
   function acceptState(next) {
-    if (!state || next.revision >= state.revision) state = next;
+    if (!state || next.revision >= state.revision) {
+      next.retryEndsAt = Date.now() + next.retryAfterMs;
+      state = next;
+    }
     render();
   }
 
@@ -172,11 +252,37 @@
         return;
       }
       acceptState(result);
+      if (result.answer) {
+        window.dispatchEvent(new CustomEvent('bingo:answer', { detail: result.answer }));
+      }
       notify(roomHint);
     } catch (error) {
       console.error(`Room action ${action} failed:`, error);
       notify(error.message, true);
       pending = false;
+      if (action === 'mark' && error.status === 409) {
+        try {
+          acceptState(await api('state'));
+          if (state.current?.claimedBy) {
+            const feedback = state.current.claimedBy === state.selfId ?
+              'You already claimed this element. No mistake counted.' :
+              `${state.current.claimedName} got there first! No mistake counted.`;
+            notify(feedback);
+            window.dispatchEvent(new CustomEvent('bingo:feedback', {
+              detail: { message: feedback, tone: 'race' },
+            }));
+            return;
+          }
+        } catch (refreshError) {
+          console.error('Unable to refresh the claim result:', refreshError);
+          notify(refreshError.message, true);
+          render();
+          window.dispatchEvent(new CustomEvent('bingo:feedback', {
+            detail: { message: refreshError.message, tone: 'error' },
+          }));
+          return;
+        }
+      }
       render();
       window.dispatchEvent(new CustomEvent('bingo:feedback', {
         detail: { message: error.message, tone: 'error' },
@@ -189,6 +295,7 @@
   }
 
   start.addEventListener('click', () => command('start'));
+  replay.addEventListener('click', () => command('reset'));
   draw.addEventListener('click', () => command('draw', { drawId: state.current.id }));
   leave.addEventListener('click', () => {
     if (stopped) location.assign('./');

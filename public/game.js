@@ -15,6 +15,8 @@
   const progressLabel = document.getElementById('progressLabel');
   const celebration = document.getElementById('celebration');
   const celebrationMessage = document.getElementById('celebrationMessage');
+  const mistakeProgress = document.getElementById('mistakeProgress');
+  const answerReveal = document.getElementById('answerReveal');
   const roomMode = new URLSearchParams(location.search).has('room');
   let elements;
   let rows = [];
@@ -24,6 +26,8 @@
   let busy = false;
   let roomState;
   let boardKey;
+  let mistakes = 0;
+  let cooldownTimer;
 
   function setStatus(message, tone = 'info') {
     status.textContent = message;
@@ -32,8 +36,9 @@
 
   function updateControls() {
     const self = roomState?.players.find((player) => player.id === roomState.selfId);
+    const coolingDown = roomMode && roomState?.retryEndsAt > Date.now();
     const unavailable = roomMode && (!roomState?.connected || roomState.pending ||
-      roomState.phase !== 'playing' || self?.ready || roomState.advancing);
+      roomState.phase !== 'playing' || self?.ready || roomState.advancing || coolingDown);
     resetButton.disabled = loading || (roomMode && elements && (!roomState?.connected ||
       roomState.pending || roomState.hostId !== roomState.selfId));
     resetButton.textContent = roomMode ? 'Reset room' : 'New game';
@@ -61,6 +66,8 @@
       roomState?.phase === 'playing' ? `Round ${roomState.round} / 4` : '4 competitive rounds' :
       `${completed} / 4 blocks`;
     progress.value = matched;
+    const count = roomMode ? self?.mistakes || 0 : mistakes;
+    mistakeProgress.textContent = `${count} ${count === 1 ? 'mistake' : 'mistakes'}`;
   }
 
   function celebrateRow(row) {
@@ -80,12 +87,17 @@
         'You are in! Waiting for the host to start the game.');
     } else if (roomState.phase === 'finished') {
       const winners = roomState.players.filter((player) => roomState.winnerIds.includes(player.id));
-      setStatus(winners.length ? `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'tie for the win' : 'wins'} with ${winners[0].matched} points!` :
+      setStatus(winners.length ? `${winners.map((player) => player.name).join(' & ')} ${winners.length > 1 ? 'tie for the win' : 'wins'} with ${winners[0].matched} ${winners[0].matched === 1 ? 'point' : 'points'}!` :
         'No elements were claimed. Start a new game to compete.', 'success');
+    } else if (roomState.intermission) {
+      setStatus(roomState.round === 4 ? 'All four rounds complete. Your final ranking is coming up!' :
+        'Round complete! Take a breath before the next orbital.', 'success');
     } else if (current?.claimedBy) {
       const yours = current.claimedBy === roomState.selfId;
       setStatus(yours ? `You claimed ${current.name}! +1 point. The next clue is on its way.` :
-        `${current.claimedName} claimed ${current.name}. It is no longer available to you.`, yours ? 'success' : 'wrong');
+        `${current.claimedName} got there first! No mistake counted. Next clue coming soon.`, yours ? 'success' : 'race');
+    } else if (roomState.retryEndsAt > Date.now()) {
+      setStatus('Not quite! Take a moment, then try again. Your points are safe.', 'wrong');
     } else if (roomState.advancing) {
       setStatus('Everyone is ready. The next clue is on its way...', 'success');
     } else {
@@ -102,6 +114,13 @@
     const opponentClaim = state.current?.claimedBy && state.current.claimedBy !== state.selfId &&
       state.current.claimedBy !== current?.claimedBy;
     roomState = state;
+    clearTimeout(cooldownTimer);
+    if (state.retryEndsAt > Date.now()) {
+      cooldownTimer = setTimeout(() => {
+        roomStatus();
+        updateControls();
+      }, state.retryEndsAt - Date.now() + 10);
+    }
     if (key !== boardKey) {
       clearFeedback();
       initializeGrid(state.board);
@@ -116,6 +135,10 @@
     } : undefined;
     const lost = Boolean(current?.claimedBy && current.claimedBy !== state.selfId);
     prompt.parentElement.classList.toggle('lost-clue', lost);
+    prompt.parentElement.hidden = state.intermission || state.phase === 'finished';
+    answerReveal.hidden = !state.previousAnswer;
+    answerReveal.textContent = state.previousAnswer ?
+      `Answer revealed: ${state.previousAnswer.name} = ${state.previousAnswer.symbol}` : '';
     let completedRow;
     for (const row of rows) {
       const wasComplete = row.cells.every((cell) => cell.marked);
@@ -211,7 +234,8 @@
     if (loading || busy || !current || cell.marked || cell.taken) return;
 
     const correct = cell.symbol === current.symbol && row.block === current.block;
-    if (roomMode && correct) {
+    if (roomMode) {
+      if (cell.button.disabled) return;
       window.dispatchEvent(new CustomEvent('bingo:action', {
         detail: { action: 'mark', symbol: cell.symbol, drawId: current.id },
       }));
@@ -230,6 +254,7 @@
         setStatus(`Correct! ${cell.symbol} is ${cell.name}.`, 'success');
       }
     } else {
+      mistakes += 1;
       cell.button.classList.add('wrong');
       setStatus(`Not quite. Find the symbol for ${current.name} and try again.`, 'wrong');
     }
@@ -324,6 +349,8 @@
   async function resetGame() {
     if (loading) return;
     clearFeedback();
+    mistakes = 0;
+    answerReveal.hidden = true;
     current = undefined;
     prompt.textContent = '';
     clueLabel.textContent = 'Find this element';
@@ -364,6 +391,24 @@
   window.addEventListener('bingo:room', (event) => applyRoom(event.detail));
   window.addEventListener('bingo:feedback', (event) => {
     setStatus(event.detail.message, event.detail.tone);
+  });
+  window.addEventListener('bingo:answer', (event) => {
+    const answer = event.detail;
+    if (answer.gameId !== roomState?.gameId || answer.drawId !== current?.id ||
+        current.claimedBy || roomState.intermission) return;
+    const cell = rows.flatMap((row) => row.cells).find((candidate) => candidate.symbol === answer.symbol);
+    if (!cell) return;
+    clearFeedback();
+    busy = true;
+    cell.button.classList.add('wrong');
+    setStatus('Not quite! Take a moment, then try again. Your points are safe.', 'wrong');
+    updateControls();
+    feedbackTimer = setTimeout(() => {
+      clearFeedback();
+      roomStatus();
+      updateControls();
+      if (document.activeElement === document.body) cell.button.focus({ preventScroll: true });
+    }, Math.max(0, roomState.retryEndsAt - Date.now()));
   });
   resetButton.addEventListener('click', () => {
     if (roomMode && elements) {
