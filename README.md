@@ -2,6 +2,12 @@
 
 **Play live:** <https://chemical-bingo.paolo-aliprandi.workers.dev/>
 
+## Languages
+
+Choose **English** or **Italiano** on the home or game page. The interface, gameplay feedback, accessible labels, and all 118 element names are translated. Italian is selected automatically for Italian browser settings unless a language has already been chosen. The preference is remembered in your browser and included in navigation and invitation links.
+
+Switching language does not reset your board, score, mistakes, or room. Players can use different languages in the same room: clues still refer to the same element symbol, and the server keeps claims and scoring shared.
+
 Match chemical element names to their symbols, complete the s, p, d, and f blocks, and celebrate each Bingo. The home page lets you choose **Single player** or **Multiplayer**.
 
 ## Playing

@@ -177,6 +177,7 @@ export class BingoRoom extends DurableObject {
       previousAnswer: this.room.previousAnswer || null,
       retryAfterMs: Math.max(0, player.retryAt - Date.now()),
       current: this.room.current ? {
+        symbol: this.room.current.symbol,
         name: this.room.current.name,
         block: this.room.current.block,
         id: this.room.current.id,

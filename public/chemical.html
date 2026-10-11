@@ -90,6 +90,10 @@
       text-underline-offset: 4px;
     }
 
+    .language-picker { margin-top: 16px; text-align: right; }
+    #languageSelect { padding: 8px; border: 1px solid #cbd9cf; border-radius: 8px; background: white; color: #203b36; font: inherit; }
+    #languageSelect:focus-visible { outline: 3px solid #246bba; outline-offset: 3px; }
+
     .home-link:focus-visible, input:focus-visible {
       outline: 3px solid #246bba;
       outline-offset: 3px;
@@ -845,6 +849,12 @@
       </div>
       <a class="home-link" href="./">Home</a>
     </header>
+    <div class="language-picker">
+      <select id="languageSelect" aria-label="Language">
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </div>
 
     <section id="roomPanel" class="room-card" hidden aria-label="Multiplayer room">
       <div class="room-heading">
@@ -919,6 +929,7 @@
     <p class="hint keyboard-hint">Play your way: click a symbol, or use <kbd>Tab</kbd> and <kbd>Enter</kbd>.</p>
   </main>
   <p class="footer">Tombola Chimica inspired by Prof. Marco Lambruschi's work. All rights reserved ®</p>
+  <script src="i18n.js" defer></script>
   <script src="game.js" defer></script>
   <script src="multiplayer.js" defer></script>
 </body>

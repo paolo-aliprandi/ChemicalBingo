@@ -21,6 +21,8 @@
     }
     main { width: min(100%, 760px); margin: auto; }
     .brand { display: flex; align-items: center; gap: 14px; }
+    .language-picker { margin-top: 20px; text-align: right; }
+    #languageSelect { padding: 8px; border: 1px solid #cbd9cf; border-radius: 8px; background: white; color: #203b36; font: inherit; }
     .brand-mark {
       display: grid;
       place-items: center;
@@ -75,7 +77,7 @@
     button, input { font: inherit; }
     button { cursor: pointer; touch-action: manipulation; }
     button:disabled { cursor: default; opacity: 0.55; }
-    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #246bba; outline-offset: 3px; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #246bba; outline-offset: 3px; }
     .room-form {
       margin-top: 24px;
       padding: 28px;
@@ -135,6 +137,12 @@
         <p class="subtitle">A little chemistry. A lot of discovery.</p>
       </div>
     </header>
+    <div class="language-picker">
+      <select id="languageSelect" aria-label="Language">
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </div>
     <section class="intro">
       <p class="eyebrow">Learn &amp; play</p>
       <h2>One board.<br>A world of elements.</h2>
@@ -176,6 +184,7 @@
     </form>
     <p class="footer">No account needed to play. Just pick a name and enjoy the chemistry.</p>
   </main>
+  <script src="i18n.js" defer></script>
   <script src="home.js" defer></script>
 </body>
 </html>
