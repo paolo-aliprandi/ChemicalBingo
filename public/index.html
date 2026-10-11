@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Learn the elements with Chemical Bingo. Play solo or invite friends to a live multiplayer room.">
+  <title>Chemical Bingo - Play your way</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #203b36;
+      background: #f5f7f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 48px 20px;
+      background: radial-gradient(ellipse at top left, #e3eee4, transparent 65%);
+    }
+    main { width: min(100%, 760px); margin: auto; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 56px;
+      border: 2px solid #296b59;
+      border-radius: 12px;
+      color: #296b59;
+      font-size: 25px;
+      font-weight: 750;
+      transform: rotate(-6deg);
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 28px; letter-spacing: -1px; }
+    .subtitle, .hint { color: #586b65; font-size: 14px; line-height: 1.6; }
+    .intro { margin: 60px 0 30px; max-width: 560px; }
+    .eyebrow { color: #38604e; font-size: 11px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; }
+    h2 { margin: 12px 0; font-size: clamp(32px, 7vw, 44px); letter-spacing: -1.4px; line-height: 1.15; }
+    .intro > .hint { font-size: 16px; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .mode {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 28px;
+      border: 1px solid #dce5dd;
+      border-radius: 20px;
+      background: white;
+      color: inherit;
+      text-align: left;
+      text-decoration: none;
+      box-shadow: 0 12px 36px #203b3608;
+      transition: border-color 150ms, transform 150ms;
+    }
+    .mode:hover { border-color: #88af93; transform: translateY(-3px); }
+    .mode[aria-expanded="true"] { border-color: #296b59; background: #edf5e9; }
+    .mode-icon {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 24px;
+      border-radius: 12px;
+      background: #eaf3e9;
+      color: #296b59;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    h3, .mode-title { margin-bottom: 10px; font-size: 21px; font-weight: 700; letter-spacing: -0.4px; }
+    .mode .hint { flex: 1; }
+    .mode-action { margin-top: 24px; font-size: 14px; font-weight: 650; color: #296b59; }
+    button, input { font: inherit; }
+    button { cursor: pointer; touch-action: manipulation; }
+    button:disabled { cursor: default; opacity: 0.55; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #246bba; outline-offset: 3px; }
+    .room-form {
+      margin-top: 24px;
+      padding: 28px;
+      border: 1px solid #dce5dd;
+      border-radius: 20px;
+      background: white;
+    }
+    .room-form h3 { font-size: 19px; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 24px 0; }
+    label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 650; }
+    input {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px;
+      border: 1px solid #cbd9cf;
+      border-radius: 10px;
+      background: #f9fbf7;
+      color: #203b36;
+    }
+    #roomCode { text-transform: uppercase; letter-spacing: 3px; }
+    .field-hint { display: block; margin-top: 6px; font-size: 12px; color: #586b65; }
+    .actions { display: flex; gap: 12px; }
+    .actions button {
+      min-height: 46px;
+      padding: 12px 20px;
+      border: 1px solid #cbd9cf;
+      border-radius: 10px;
+      background: white;
+      color: #365b4c;
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .actions #createRoom { background: #296b59; border-color: #296b59; color: white; }
+    #roomStatus { margin-top: 18px; font-size: 14px; line-height: 1.5; color: #586b65; }
+    #roomStatus.error { color: #a52b24; }
+    .footer { margin-top: 40px; text-align: center; color: #64756d; font-size: 12px; line-height: 1.7; }
+    @media (max-width: 520px) {
+      body { padding: 24px 16px; }
+      .intro { margin-top: 40px; }
+      .modes, .fields { grid-template-columns: 1fr; }
+      .mode, .room-form { padding: 24px; }
+      .mode-icon { margin-bottom: 16px; }
+      .actions button { flex: 1; padding: 12px 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mode { transition: none; }
+      .mode:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="brand">
+      <span class="brand-mark" aria-hidden="true">Cb</span>
+      <div>
+        <h1>Chemical Bingo</h1>
+        <p class="subtitle">A little chemistry. A lot of discovery.</p>
+      </div>
+    </header>
+    <section class="intro">
+      <p class="eyebrow">Learn &amp; play</p>
+      <h2>One board.<br>A world of elements.</h2>
+      <p class="hint">Match names to symbols, complete each block, and celebrate every Bingo. Play at your own pace or bring your friends.</p>
+    </section>
+    <div class="modes">
+      <a class="mode" href="chemical.html" aria-label="Start a single-player game">
+        <span class="mode-icon" aria-hidden="true">1</span>
+        <h3>Single player</h3>
+        <p class="hint">Your board, your pace. Explore the elements and complete all four blocks.</p>
+        <span class="mode-action">Start playing &rarr;</span>
+      </a>
+      <button class="mode" id="chooseMultiplayer" type="button" aria-expanded="false" aria-controls="roomForm">
+        <span class="mode-icon" aria-hidden="true">2+</span>
+        <span class="mode-title">Multiplayer</span>
+        <span class="hint">Different boards, shared clues. Race your friends: the first correct claim wins the element.</span>
+        <span class="mode-action">Play together &rarr;</span>
+      </button>
+    </div>
+    <form id="roomForm" class="room-form" hidden novalidate>
+      <h3>Bring everyone to the same room</h3>
+      <p class="hint">Create a room and share its code, or enter a code to join. Up to 20 players can play together.</p>
+      <div class="fields">
+        <div>
+          <label for="playerName">Your player name</label>
+          <input id="playerName" name="name" required maxlength="24" placeholder="e.g. Player 1" autocomplete="nickname">
+        </div>
+        <div>
+          <label for="roomCode">Room code</label>
+          <input id="roomCode" name="code" maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="ABC123" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="codeHint">
+          <span class="field-hint" id="codeHint">Only needed when joining a room.</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="createRoom" type="submit">Create room</button>
+        <button id="joinRoom" type="submit">Join with code</button>
+      </div>
+      <p id="roomStatus" role="status" aria-atomic="true">Everyone gets their own board. The host starts the game once the room is ready.</p>
+    </form>
+    <p class="footer">No account needed to play. Just pick a name and enjoy the chemistry.</p>
+  </main>
+  <script src="home.js" defer></script>
+</body>
+</html>

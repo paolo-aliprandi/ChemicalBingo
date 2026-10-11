@@ -1,46 +1,70 @@
 # Chemical Bingo
 
-**The game**
+**Play live:** <https://chemical-bingo.paolo-aliprandi.workers.dev/>
 
-This Chemical Bingo project is a web-based game designed to enhance your knowledge of chemical elements in a fun and interactive way. The game utilizes a Bingo-style grid, where each cell represents a chemical element. The goal is to achieve Bingo by correctly identifying and clicking on the cells that correspond to randomly selected chemical elements.
+Match chemical element names to their symbols, complete the s, p, d, and f blocks, and celebrate each Bingo. The home page lets you choose **Single player** or **Multiplayer**.
 
-Here's how the project works:
+## Playing
 
-1. **Initialization:**
-   - The game starts by displaying a Bingo grid with four rows and five columns.
-   - Each cell in the grid corresponds to a chemical element symbol.
+Each board has four rows of five unique symbols. Clues are drawn from **all elements in the active block**, not just those on your board. If a clue is missing, skip it. In solo mode, each element is drawn once per cycle; exhausted pools renew without already matched symbols so skipped matches remain reachable.
 
-2. **Random Element Selection:**
-   - Elements are randomly selected from different orbitals (s, p, d, f) to add an element of unpredictability.
-   - The selected element is displayed at the top of the page for reference.
+Correct answers turn green. Wrong answers briefly turn red and let you retry. Completed rows play a wave animation with a Bingo banner; reduced-motion preferences are respected. Use a mouse, touch, or Tab and Enter/Space.
 
-3. **Gameplay:**
-   - Players click on the cells corresponding to the selected element.
-   - If the clicked cell matches the selected element, it is marked as "clicked" (highlighted in green).
-   - If the clicked cell does not match, it is marked as "wrong" (highlighted in red).
+In single-player mode, **Next element** skips a clue and **New game** creates a fresh board.
 
-4. **Bingo Check:**
-   - The game checks for a Bingo after each click.
-   - Bingo is achieved when an entire row is filled with correctly clicked cells.
-   - The winning row is highlighted, and the player is alerted about the Bingo.
+## Multiplayer rooms
 
-5. **Next Element:**
-   - After each click, a new element is randomly selected for the player to identify.
-   - The cycle of random element selection and gameplay continues.
+1. Select **Multiplayer** on the home page, enter a player name, and **Create room**.
+2. Share the six-character room code or **Copy invite** link. Friends enter their own names and use **Join with code**.
+3. The host selects **Start game** once everyone has joined.
 
-6. **Reset and New Game:**
-   - Players can reset the game using the "Reset Game" button, which initializes a new grid and element selection.
-   - The "Next Element" button triggers the selection of a new random element.
+Rooms support up to 20 players. Each player gets a private, independently generated board; everyone sees the same clue. **The first valid claim received by the server wins the element and scores 1 point.** That element becomes permanently unavailable to every other player. Simultaneous claims are resolved by the server, not by client-side timing.
 
-7. **Loading Elements:**
-   - The game fetches chemical elements from an external JSON file during initialization.
-   - A loading message is displayed until the elements are loaded.
+On opponents' screens, the symbol and shared clue turn red and fall away; the claimant's name appears on the lost tile and clue card. The winner keeps a green symbol. Reduced-motion mode shows the final red/name state without falling animations.
 
+A successful claim automatically advances the shared clue after a short feedback pause. If nobody can claim it, use **Skip / Ready**; when everyone skips, the clue advances. The host can also use **Draw now** to move on early.
 
-**Local usage**
+Each block is a competitive round. Elements are drawn once, without recycling. A round ends as soon as someone completes a five-symbol Bingo, or when all elements in that block have been drawn. The highest round score wins that round; ties are shared. This ensures rounds can finish even when opponents have taken symbols needed for your row. After all four rounds, the highest total score wins the game; ties are shared. A game with no claims has no winner.
 
-Once cloned the git, to start the game, first startup the server
+Only the host can start, reset, or draw early. **Reset room** returns everyone to the lobby so more friends can join. Players cannot join mid-game. **Leave room** returns to the home page; if the host leaves, another player becomes host.
 
- ```  http-server ```
+Reloading reconnects to your existing player and board. Disconnected players have 60 seconds to reconnect before being removed. Rooms expire after two hours without gameplay activity. No player accounts are required; membership is kept in an HTTP-only cookie. To try two players on one computer, use a normal browser window and a separate private/incognito window.
 
-Then, open the URL 'localhost:8080/chemical.html'
+Rooms created under the previous cooperative rules return to the lobby when upgraded. The host can start a fresh competitive game.
+
+## Local development
+
+With Node.js 22 or newer:
+
+```sh
+npm ci
+npm run dev
+```
+
+Open <http://localhost:8080/>. Wrangler runs the frontend and a local version of the multiplayer backend. No Cloudflare login is needed for local development. Keep the server running while playing; press Ctrl+C to stop it.
+
+To serve **single-player only** with Python 3:
+
+```sh
+python3 -m http.server 8080 --bind 127.0.0.1 --directory public
+```
+
+Multiplayer requires Wrangler or the deployed Cloudflare Worker; a static server alone cannot host rooms. Opening HTML directly with `file://` is unsupported because browsers restrict loading element data.
+
+## Free personal hosting
+
+The game uses Cloudflare Workers with static assets and SQLite-backed Durable Objects. Each room is a Durable Object with server-validated moves and a persistent room state. WebSockets use hibernation and automatic ping responses to avoid keeping idle rooms running.
+
+Use a **personal Cloudflare account on the Workers Free plan**, not an organizational Azure subscription:
+
+```sh
+npx wrangler login
+npx wrangler whoami
+npm run deploy
+```
+
+Confirm the personal account before deploying. The deployment command publishes both the site and multiplayer backend and prints the live `workers.dev` URL. No custom domain or paid plan is required.
+
+Cloudflare's Free plan currently includes 100,000 Worker requests per day and free static asset requests. SQLite-backed Durable Objects also have daily compute and storage limits. Exceeding a free-plan limit makes the affected operations fail until the limit resets; do not enable Workers Paid if you require a zero-cost deployment. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) for current limits.
+
+Frontend files are in `public/`. `worker.js` implements rooms, and `wrangler.jsonc` configures the free-tier-compatible SQLite namespace. Only `public/` is served as static assets; local configuration and backend source are not public URLs.
