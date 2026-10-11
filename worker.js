@@ -1,11 +1,10 @@
 import { DurableObject } from 'cloudflare:workers';
 import elements from './public/elements.json';
+import { blocks, blockPoints, rowBonuses, columnBonus, completedLines, scoreBoard } from './public/scoring.js';
 
-const blocks = ['s', 'p', 'd', 'f'];
 const allElements = Object.assign({}, ...Object.values(elements));
 const elementBlocks = Object.fromEntries(blocks.flatMap((block) =>
   Object.keys(elements[block]).map((symbol) => [symbol, block])));
-const blockPoints = { s: 1, p: 2, d: 3, f: 4 };
 const gameDuration = 10 * 60 * 1000;
 const clueDuration = 5000;
 const roomLifetime = 2 * 60 * 60 * 1000;
@@ -147,7 +146,7 @@ export class BingoRoom extends DurableObject {
     this.room = null;
     this.ctx.blockConcurrencyWhile(async () => {
       this.room = await this.ctx.storage.get('room') || null;
-      if (this.room && this.room.rulesVersion !== 4) {
+      if (this.room && this.room.rulesVersion !== 5) {
         this.newGame('lobby');
         await this.save();
         this.broadcast();
@@ -181,6 +180,8 @@ export class BingoRoom extends DurableObject {
       drawn: this.room.drawId,
       totalElements: Object.keys(allElements).length,
       blockPoints,
+      rowBonuses,
+      columnBonus,
       remainingMs: this.room.phase === 'playing' ? Math.max(0, this.room.gameEndsAt - Date.now()) : 0,
       clueRemainingMs: Math.max(0, (this.room.advanceAt || 0) - Date.now()),
       endReason: this.room.endReason,
@@ -207,8 +208,8 @@ export class BingoRoom extends DurableObject {
         score: this.score(candidate),
         mistakes: candidate.mistakes,
         clueMistakes: candidate.clueMistakes,
-        blocks: blocks.filter((block) =>
-          candidate.board[block].every((symbol) => candidate.marked.includes(symbol))).length,
+        blocks: completedLines(candidate.board, candidate.marked).rows.length,
+        columns: completedLines(candidate.board, candidate.marked).columns.length,
       })),
     };
   }
@@ -250,7 +251,7 @@ export class BingoRoom extends DurableObject {
   }
 
   newGame(phase) {
-    this.room.rulesVersion = 4;
+    this.room.rulesVersion = 5;
     this.room.gameId += 1;
     this.room.phase = phase;
     this.room.current = null;
@@ -278,7 +279,7 @@ export class BingoRoom extends DurableObject {
   }
 
   score(player) {
-    return player.marked.reduce((score, symbol) => score + blockPoints[elementBlocks[symbol]], 0);
+    return scoreBoard(player.board, player.marked);
   }
 
   canReturn(symbol) {
@@ -379,7 +380,7 @@ export class BingoRoom extends DurableObject {
           mistakes: 0, clueMistakes: 0, retryAt: 0,
         };
         this.room = {
-          code, gameId: 1, revision: 0, rulesVersion: 4, phase: 'lobby', hostId: player.id,
+          code, gameId: 1, revision: 0, rulesVersion: 5, phase: 'lobby', hostId: player.id,
           winnerId: null, winnerIds: [], claims: {},
           players: [player], current: null, pool: Object.keys(allElements), drawId: 0,
           retryPool: [], recycling: false, resolving: false, gameEndsAt: null, endReason: null,

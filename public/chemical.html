@@ -500,6 +500,26 @@
       font-weight: 750;
     }
 
+    .column-heading {
+      width: auto;
+      font-size: 11px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    thead td {
+      width: 52px;
+    }
+
+    .column-heading.completed-column {
+      color: #296b59;
+    }
+
+    .scoring-hint {
+      margin: 10px 0;
+      font-size: 12px;
+    }
+
     .results-actions {
       display: flex;
       flex-wrap: wrap;
@@ -603,7 +623,7 @@
       color: var(--completed-text);
     }
 
-    tr.celebrating .element {
+    tr.celebrating .element, .element.celebrating {
       animation: bingo-wave 700ms ease-in-out var(--celebration-delay) both;
     }
 
@@ -618,7 +638,7 @@
       background: #fffef2;
       color: #296b59;
       text-align: center;
-      white-space: nowrap;
+      width: min(90%, 480px);
       pointer-events: none;
       transform: translate(-50%, -50%);
       box-shadow: 0 8px 36px #203b3630;
@@ -936,6 +956,10 @@
         width: 28px;
       }
 
+      thead td {
+        width: 28px;
+      }
+
       .element {
         border-radius: 8px;
       }
@@ -947,7 +971,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .celebration, tr.celebrating .element, .element.taken .element-symbol,
+      .celebration, tr.celebrating .element, .element.celebrating, .element.taken .element-symbol,
       .element.taken .claim-owner, .clue-card.lost-clue #currentElement, .podium-place {
         animation: none;
       }
@@ -1052,6 +1076,7 @@
         <h2 id="boardTitle">Your bingo board</h2>
         <span id="blockProgress">0 / 4 rows complete</span>
       </div>
+      <p id="scoringHint" class="hint scoring-hint">Row bonuses: s +5, p +10, d +15, f +20. Each completed column: +10. Bonuses stack and count once per line.</p>
       <table id="bingoGrid" aria-label="Chemical Bingo board" aria-describedby="instructions"></table>
       <div id="celebration" class="celebration" hidden aria-hidden="true">
         <strong>Bingo!</strong>
@@ -1068,7 +1093,7 @@
   </main>
   <p class="footer">Tombola Chimica inspired by Prof. Marco Lambruschi's work. All rights reserved ®</p>
   <script src="i18n.js" defer></script>
-  <script src="game.js" defer></script>
+  <script src="game.js" type="module"></script>
   <script src="multiplayer.js" defer></script>
 </body>
 </html>

@@ -70,6 +70,7 @@
     '#activeBlock': 'Preparazione della cartella...',
     '#status': 'Caricamento degli elementi...',
     '#boardTitle': 'La tua cartella',
+    '#scoringHint': 'Bonus righe: s +5, p +10, d +15, f +20. Ogni colonna completata: +10. I bonus si sommano e contano una volta per linea.',
     '#blockProgress': '0 / 4 righe complete',
     '#progressLabel': 'Punteggio',
     '#mistakeProgress': '0 errori',

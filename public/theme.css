@@ -119,6 +119,10 @@
   color: var(--completed-text);
 }
 
+[data-theme="dark"] .column-heading.completed-column {
+  color: var(--theme-accent);
+}
+
 [data-theme="dark"] tr.active .element:not(.clicked):not(.wrong):not(.taken) {
   background: #2c4837;
   border-color: #658772;

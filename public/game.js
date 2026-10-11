@@ -1,8 +1,9 @@
 'use strict';
 
+import { blocks, blockPoints, rowBonuses, columnBonus, completedLines, scoreBoard } from './scoring.js';
+
 (() => {
   const { t, element: elementName, points, mistakes: mistakeCount } = window.BingoLanguage;
-  const blocks = ['s', 'p', 'd', 'f'];
   const grid = document.getElementById('bingoGrid');
   const prompt = document.getElementById('currentElement');
   const status = document.getElementById('status');
@@ -34,7 +35,22 @@
   let mistakes = 0;
   let cooldownTimer;
   let draws = [];
-  const blockPoints = { s: 1, p: 2, d: 3, f: 4 };
+  let columnHeaders = [];
+  let celebratingLines;
+
+  function boardState() {
+    return {
+      board: Object.fromEntries(rows.map((row) => [row.block, row.cells.map((cell) => cell.symbol)])),
+      marked: rows.flatMap((row) => row.cells.filter((cell) => cell.marked).map((cell) => cell.symbol)),
+    };
+  }
+
+  function earnedLines(before, after) {
+    return {
+      rows: after.rows.filter((block) => !before.rows.includes(block)),
+      columns: after.columns.filter((index) => !before.columns.includes(index)),
+    };
+  }
 
   function timeRemaining() {
     return roomState ? Math.max(0, roomState.remainingMs - (performance.now() - roomState.receivedAt)) : 0;
@@ -89,13 +105,25 @@
       row.element.setAttribute('aria-label', t(`${row.block} row${complete ? ', completed' : ''}`,
         `Riga ${row.block}${complete ? ', completata' : ''}`));
       row.element.classList.toggle('active', row.block === current?.block);
+      row.element.querySelector('.block-value').title = t(
+        `${points(blockPoints[row.block])} per element; +${points(rowBonuses[row.block])} row bonus`,
+        `${points(blockPoints[row.block])} per elemento; bonus riga +${points(rowBonuses[row.block])}`);
       for (const cell of row.cells) {
         cell.button.disabled = loading || busy || cell.marked || cell.taken || !current || unavailable;
       }
     }
     progressLabel.textContent = t('Score', 'Punteggio');
-    const score = roomMode ? self?.score || 0 : rows.reduce((sum, row) =>
-      sum + row.cells.filter((cell) => cell.marked).length * blockPoints[row.block], 0);
+    const board = boardState();
+    const lines = rows.length ? completedLines(board.board, board.marked) : { rows: [], columns: [] };
+    columnHeaders.forEach((heading, index) => {
+      const complete = lines.columns.includes(index);
+      heading.classList.toggle('completed-column', complete);
+      heading.textContent = `${index + 1} \u00b7 +${columnBonus}${complete ? ' \u2713' : ''}`;
+      heading.setAttribute('aria-label', t(
+        `Column ${index + 1}, ${complete ? 'completed, ' : ''}${points(columnBonus)} completion bonus`,
+        `Colonna ${index + 1}, ${complete ? 'completata, ' : ''}bonus completamento ${points(columnBonus)}`));
+    });
+    const score = roomMode ? self?.score || 0 : rows.length ? scoreBoard(board.board, board.marked) : 0;
     matchProgress.textContent = points(score);
     blockProgress.textContent = roomMode && roomState ?
       t(`Draw ${roomState.drawn} \u00b7 ${roomState.totalElements} possible elements`,
@@ -106,12 +134,21 @@
     mistakeProgress.textContent = mistakeCount(count);
   }
 
-  function celebrateRow(row) {
-    row.element.classList.add('completed', 'celebrating');
-    celebrationMessage.textContent = t(`${row.block} row complete`, `Riga ${row.block} completata`);
+  function celebrateLines(lines) {
+    celebratingLines = lines;
+    for (const block of lines.rows) rows.find((row) => row.block === block).element.classList.add('completed', 'celebrating');
+    for (const index of lines.columns) {
+      for (const row of rows) row.cells[index].button.classList.add('celebrating');
+    }
+    const labels = [
+      ...lines.rows.map((block) => t(`${block} row complete`, `Riga ${block} completata`)),
+      ...lines.columns.map((index) => t(`Column ${index + 1} complete`, `Colonna ${index + 1} completata`)),
+    ].join(' \u00b7 ');
+    const bonus = lines.rows.reduce((sum, block) => sum + rowBonuses[block], 0) + lines.columns.length * columnBonus;
+    celebrationMessage.textContent = `${labels} \u00b7 +${points(bonus)}`;
     celebration.hidden = false;
-    setStatus(t(`Bingo! The ${row.block} row is complete. Keep collecting points!`,
-      `Bingo! La riga ${row.block} \u00e8 completa. Continua a raccogliere punti!`), 'success');
+    setStatus(t(`Bingo! ${labels}. +${points(bonus)} bonus! Keep collecting points!`,
+      `Bingo! ${labels}. Bonus +${points(bonus)}! Continua a raccogliere punti!`), 'success');
   }
 
   function roomStatus() {
@@ -171,11 +208,12 @@
         updateControls();
       }, state.retryEndsAt - Date.now() + 10);
     }
-    if (key !== boardKey) {
+    const boardChanged = key !== boardKey;
+    if (boardChanged) {
       clearFeedback();
       initializeGrid(state.board);
       boardKey = key;
-    } else if (opponentClaim || (changed && !rows.some((row) => row.element.classList.contains('celebrating')))) {
+    } else if (opponentClaim || (changed && !celebratingLines)) {
       clearFeedback();
     }
     if (state.current) {
@@ -190,9 +228,9 @@
     answerReveal.textContent = state.previousAnswer ?
       t(`Answer revealed: ${elementName(state.previousAnswer.symbol, state.previousAnswer.name)} = ${state.previousAnswer.symbol}`,
         `Risposta: ${elementName(state.previousAnswer.symbol, state.previousAnswer.name)} = ${state.previousAnswer.symbol}`) : '';
-    let completedRow;
+    const before = boardState();
+    const previousLines = completedLines(before.board, before.marked);
     for (const row of rows) {
-      const wasComplete = row.cells.every((cell) => cell.marked);
       for (const cell of row.cells) {
         cell.marked = state.marked.includes(cell.symbol);
         const owner = state.claims[cell.symbol];
@@ -208,8 +246,9 @@
       }
       const complete = row.cells.every((cell) => cell.marked);
       row.element.classList.toggle('completed', complete);
-      if (complete && !wasComplete) completedRow = row;
     }
+    const after = boardState();
+    const earned = earnedLines(previousLines, completedLines(after.board, after.marked));
     if (state.phase === 'lobby') {
       clueLabel.textContent = t('Your room is ready', 'La tua stanza \u00e8 pronta');
       prompt.textContent = t('Gather your players', 'Invita i giocatori');
@@ -239,10 +278,10 @@
     if (state.phase === 'finished') {
       clearFeedback();
       roomStatus();
-    } else if (completedRow) {
+    } else if (!boardChanged && (earned.rows.length || earned.columns.length)) {
       clearFeedback();
       busy = true;
-      celebrateRow(completedRow);
+      celebrateLines(earned);
       feedbackTimer = setTimeout(() => {
         clearFeedback();
         roomStatus();
@@ -259,11 +298,13 @@
     clearTimeout(feedbackTimer);
     feedbackTimer = undefined;
     busy = false;
+    celebratingLines = undefined;
     celebration.hidden = true;
     for (const row of rows) {
       row.element.classList.remove('celebrating');
       for (const cell of row.cells) {
         cell.button.classList.remove('wrong');
+        cell.button.classList.remove('celebrating');
       }
     }
   }
@@ -309,12 +350,16 @@
     busy = true;
     let rowComplete = false;
     if (correct) {
+      const before = boardState();
+      const previousLines = completedLines(before.board, before.marked);
       cell.marked = true;
       cell.button.classList.add('clicked');
       cell.button.setAttribute('aria-pressed', 'true');
-      if (row.cells.every((candidate) => candidate.marked)) {
+      const after = boardState();
+      const earned = earnedLines(previousLines, completedLines(after.board, after.marked));
+      if (earned.rows.length || earned.columns.length) {
         rowComplete = true;
-        celebrateRow(row);
+        celebrateLines(earned);
       } else {
         setStatus(t(`Correct! ${cell.symbol} is ${elementName(cell.symbol, cell.name)}.`,
           `Corretto! ${cell.symbol} \u00e8 ${elementName(cell.symbol, cell.name)}.`), 'success');
@@ -345,8 +390,19 @@
 
   function initializeGrid(presetBoard) {
     grid.replaceChildren();
+    const header = grid.createTHead().insertRow();
+    const corner = document.createElement('td');
+    header.appendChild(corner);
+    columnHeaders = Array.from({ length: 5 }, () => {
+      const heading = document.createElement('th');
+      heading.scope = 'col';
+      heading.className = 'column-heading';
+      header.appendChild(heading);
+      return heading;
+    });
+    const body = grid.createTBody();
     rows = blocks.map((block) => {
-      const element = grid.insertRow();
+      const element = body.insertRow();
       element.dataset.block = block;
       const heading = document.createElement('th');
       heading.scope = 'row';
@@ -361,7 +417,7 @@
       heading.appendChild(count);
       const weight = document.createElement('span');
       weight.className = 'block-value';
-      weight.textContent = `+${blockPoints[block]}`;
+      weight.textContent = `+${blockPoints[block]} / +${rowBonuses[block]}`;
       heading.appendChild(weight);
       element.appendChild(heading);
       const row = { block, element, count, cells: [] };
@@ -487,8 +543,7 @@
       clueLabel.textContent = t('Board complete', 'Cartella completata');
       activeBlock.textContent = t('20 elements discovered. Nicely done!', '20 elementi scoperti. Complimenti!');
     }
-    const celebrating = rows.find((row) => row.element.classList.contains('celebrating'));
-    if (celebrating) celebrateRow(celebrating);
+    if (celebratingLines) celebrateLines(celebratingLines);
     else setStatus(t('Match the symbol if you have it. Otherwise, skip to the next element.',
       'Abbina il simbolo se lo hai. Altrimenti passa al prossimo elemento.'));
     updateControls();

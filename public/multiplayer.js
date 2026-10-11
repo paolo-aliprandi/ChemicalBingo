@@ -21,8 +21,8 @@
   const resultsReason = document.getElementById('resultsReason');
   const resultsHome = document.getElementById('resultsHome');
   let resultsKey;
-  const roomHint = () => t('Exclusive claims: s +1, p +2, d +3, f +4. Maximum 5 seconds per clue; two mistakes automatically skip. Only the host can start or reset.',
-    'Conquiste esclusive: s +1, p +2, d +3, f +4. Massimo 5 secondi per indizio; due errori fanno passare automaticamente. Solo l\'organizzatore pu\u00f2 avviare o reimpostare.');
+  const roomHint = () => t('Exclusive claims: s +1, p +2, d +3, f +4, plus row and column bonuses. Maximum 5 seconds per clue; two mistakes automatically skip. Only the host can start or reset.',
+    'Conquiste esclusive: s +1, p +2, d +3, f +4, pi\u00f9 bonus per righe e colonne. Massimo 5 secondi per indizio; due errori fanno passare automaticamente. Solo l\'organizzatore pu\u00f2 avviare o reimpostare.');
   panel.hidden = false;
   codeLabel.textContent = code;
   let state;
